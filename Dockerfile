@@ -14,5 +14,5 @@ COPY backend/ .
 # Expose port
 EXPOSE 8000
 
-# Use ENTRYPOINT with shell to properly expand PORT variable
-ENTRYPOINT ["/bin/sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Use Python script that properly reads PORT env variable
+CMD ["python", "start.py"]
