@@ -19,6 +19,7 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "https://readableedi.com",
         "https://www.readableedi.com",
+        "https://edi-pi.vercel.app",
         "https://*.vercel.app",
     ]
     
