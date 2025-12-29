@@ -23,7 +23,7 @@ export function EmailGateModal({ isOpen, onClose, onVerified }: EmailGateModalPr
         setError("");
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/send-code`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://edi-production.up.railway.app'}/api/v1/auth/send-code`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email }),
@@ -54,7 +54,7 @@ export function EmailGateModal({ isOpen, onClose, onVerified }: EmailGateModalPr
         setError("");
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/verify-code`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://edi-production.up.railway.app'}/api/v1/auth/verify-code`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, code }),

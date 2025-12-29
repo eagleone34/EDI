@@ -101,7 +101,7 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
             formData.append("transaction_type", transactionType);
 
             // Try calling the real backend API
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://edi-production.up.railway.app';
             const response = await fetch(`${apiUrl}/api/v1/convert`, {
                 method: "POST",
                 body: formData,
