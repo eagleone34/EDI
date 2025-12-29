@@ -101,7 +101,8 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
             formData.append("transaction_type", transactionType);
 
             // Try calling the real backend API
-            const response = await fetch("/api/v1/convert", {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const response = await fetch(`${apiUrl}/api/v1/convert`, {
                 method: "POST",
                 body: formData,
             });
