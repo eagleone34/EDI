@@ -1,43 +1,109 @@
 """
-PDF Generator for EDI documents.
+PDF Generator for EDI documents using ReportLab.
 """
 
-from typing import Optional
+from typing import Optional, List
 from pathlib import Path
-import tempfile
+from io import BytesIO
 
-# WeasyPrint for PDF generation
-# from weasyprint import HTML, CSS
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 from app.parsers.base import EDIDocument
 
 
 class PDFGenerator:
-    """Generate PDF output from parsed EDI documents."""
+    """Generate PDF output from parsed EDI documents using ReportLab."""
     
     def __init__(self):
-        self.template_dir = Path(__file__).parent.parent / "templates"
+        self.styles = getSampleStyleSheet()
+        self._setup_custom_styles()
+    
+    def _setup_custom_styles(self):
+        """Set up custom paragraph styles."""
+        self.styles.add(ParagraphStyle(
+            name='DocTitle',
+            parent=self.styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#1e40af'),
+            spaceAfter=20,
+            alignment=TA_CENTER
+        ))
+        self.styles.add(ParagraphStyle(
+            name='SectionTitle',
+            parent=self.styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#1e40af'),
+            spaceBefore=20,
+            spaceAfter=10,
+            borderColor=colors.HexColor('#e2e8f0'),
+            borderWidth=1,
+            borderPadding=5
+        ))
+        self.styles.add(ParagraphStyle(
+            name='InfoLabel',
+            parent=self.styles['Normal'],
+            fontSize=9,
+            textColor=colors.HexColor('#64748b'),
+        ))
+        self.styles.add(ParagraphStyle(
+            name='InfoValue',
+            parent=self.styles['Normal'],
+            fontSize=11,
+            textColor=colors.HexColor('#1e293b'),
+        ))
+        self.styles.add(ParagraphStyle(
+            name='Footer',
+            parent=self.styles['Normal'],
+            fontSize=9,
+            textColor=colors.HexColor('#64748b'),
+            alignment=TA_CENTER
+        ))
     
     def generate(self, document: EDIDocument, output_path: Optional[str] = None) -> bytes:
+        """Generate a PDF from a single EDI document."""
+        return self.generate_all([document], output_path)
+    
+    def generate_all(self, documents: List, output_path: Optional[str] = None) -> bytes:
         """
-        Generate a PDF from an EDI document.
-        
-        Args:
-            document: Parsed EDI document
-            output_path: Optional path to save the PDF
-            
-        Returns:
-            PDF file as bytes
+        Generate a PDF from multiple EDI documents.
+        Creates a multi-page PDF with all POs.
         """
-        # Generate HTML first
-        html_content = self._build_html(document)
+        if not documents:
+            documents = [EDIDocument(transaction_type="850", transaction_name="Purchase Order")]
         
-        # TODO: Use WeasyPrint to convert HTML to PDF
-        # For now, return placeholder
-        # html = HTML(string=html_content)
-        # pdf_bytes = html.write_pdf()
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            rightMargin=50,
+            leftMargin=50,
+            topMargin=50,
+            bottomMargin=50
+        )
         
-        pdf_bytes = html_content.encode('utf-8')  # Placeholder
+        story = []
+        
+        # If multiple documents, add summary page
+        if len(documents) > 1:
+            story.extend(self._build_summary_page(documents))
+            story.append(PageBreak())
+        
+        # Add each document
+        for idx, edi_doc in enumerate(documents, 1):
+            if idx > 1:
+                story.append(PageBreak())
+            story.extend(self._build_document_content(edi_doc, idx, len(documents)))
+        
+        # Build the PDF
+        doc.build(story)
+        
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
         
         if output_path:
             with open(output_path, 'wb') as f:
@@ -45,163 +111,294 @@ class PDFGenerator:
         
         return pdf_bytes
     
-    def _build_html(self, document: EDIDocument) -> str:
-        """Build HTML content for the PDF."""
+    def _build_summary_page(self, documents: List) -> List:
+        """Build summary page content for multiple documents."""
+        elements = []
         
-        # Build line items table
-        line_items_html = ""
+        # Title
+        elements.append(Paragraph(
+            f"📦 {len(documents)} Purchase Orders",
+            self.styles['DocTitle']
+        ))
+        elements.append(Paragraph(
+            "EDI 850 Conversion Summary",
+            self.styles['Normal']
+        ))
+        elements.append(Spacer(1, 30))
+        
+        # Summary table
+        data = [['PO Number', 'PO Date', 'Line Items', 'Total Amount']]
+        
+        for doc in documents:
+            po_num = doc.header.get("po_number", "—")
+            po_date = doc.header.get("po_date", "—")
+            line_count = str(len(doc.line_items))
+            total = doc.summary.get("total_amount") or doc.summary.get("calculated_total")
+            total_str = f"${total:,.2f}" if isinstance(total, (int, float)) else "—"
+            data.append([po_num, po_date, line_count, total_str])
+        
+        table = Table(data, colWidths=[2*inch, 1.5*inch, 1*inch, 1.5*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('TOPPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8fafc')),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#1e293b')),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e2e8f0')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+            ('TOPPADDING', (0, 1), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 10),
+        ]))
+        
+        elements.append(table)
+        
+        return elements
+    
+    def _build_document_content(self, document: EDIDocument, idx: int, total: int) -> List:
+        """Build content for a single document."""
+        elements = []
+        
+        # Header
+        po_num = document.header.get("po_number", "—")
+        if total > 1:
+            title_text = f"Purchase Order {idx} of {total} — PO #{po_num}"
+        else:
+            title_text = f"Purchase Order — PO #{po_num}"
+        
+        elements.append(Paragraph(title_text, self.styles['DocTitle']))
+        elements.append(Spacer(1, 10))
+        
+        # Order Information section
+        elements.append(Paragraph("Order Information", self.styles['SectionTitle']))
+        elements.extend(self._build_order_info(document))
+        
+        # Parties section
+        parties = document.header.get("parties", [])
+        if parties:
+            elements.append(Paragraph("Parties & Addresses", self.styles['SectionTitle']))
+            elements.extend(self._build_parties_table(parties))
+        
+        # Line Items section
         if document.line_items:
-            line_items_html = """
-            <table class="line-items">
-                <thead>
-                    <tr>
-                        <th>Line #</th>
-                        <th>Product ID</th>
-                        <th>Quantity</th>
-                        <th>Unit</th>
-                        <th>Unit Price</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """
-            for item in document.line_items:
-                line_items_html += f"""
-                    <tr>
-                        <td>{item.get('line_number', '—')}</td>
-                        <td>{item.get('product_id', '—')}</td>
-                        <td>{item.get('quantity', item.get('quantity_invoiced', item.get('quantity_shipped', '—')))}</td>
-                        <td>{item.get('unit', '—')}</td>
-                        <td>{item.get('unit_price', '—')}</td>
-                    </tr>
-                """
-            line_items_html += "</tbody></table>"
+            elements.append(Paragraph(f"Line Items ({len(document.line_items)} items)", self.styles['SectionTitle']))
+            elements.extend(self._build_line_items_table(document.line_items))
         
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>EDI {document.transaction_type} - {document.transaction_name}</title>
-            <style>
-                body {{
-                    font-family: 'Helvetica Neue', Arial, sans-serif;
-                    margin: 40px;
-                    color: #333;
-                    line-height: 1.6;
-                }}
-                .header {{
-                    border-bottom: 3px solid #2563eb;
-                    padding-bottom: 20px;
-                    margin-bottom: 30px;
-                }}
-                .header h1 {{
-                    color: #2563eb;
-                    margin: 0;
-                    font-size: 28px;
-                }}
-                .header .doc-type {{
-                    color: #64748b;
-                    font-size: 14px;
-                    margin-top: 5px;
-                }}
-                .section {{
-                    margin-bottom: 25px;
-                }}
-                .section h2 {{
-                    color: #1e40af;
-                    font-size: 18px;
-                    border-bottom: 1px solid #e2e8f0;
-                    padding-bottom: 8px;
-                }}
-                .info-grid {{
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 15px;
-                }}
-                .info-item {{
-                    background: #f8fafc;
-                    padding: 12px;
-                    border-radius: 6px;
-                }}
-                .info-item label {{
-                    font-size: 12px;
-                    color: #64748b;
-                    text-transform: uppercase;
-                }}
-                .info-item value {{
-                    font-size: 16px;
-                    font-weight: 600;
-                    display: block;
-                    margin-top: 4px;
-                }}
-                .line-items {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 15px;
-                }}
-                .line-items th {{
-                    background: #1e40af;
-                    color: white;
-                    padding: 12px;
-                    text-align: left;
-                    font-size: 12px;
-                    text-transform: uppercase;
-                }}
-                .line-items td {{
-                    padding: 12px;
-                    border-bottom: 1px solid #e2e8f0;
-                }}
-                .line-items tr:nth-child(even) {{
-                    background: #f8fafc;
-                }}
-                .footer {{
-                    margin-top: 40px;
-                    padding-top: 20px;
-                    border-top: 1px solid #e2e8f0;
-                    font-size: 12px;
-                    color: #64748b;
-                    text-align: center;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>{document.transaction_name}</h1>
-                <div class="doc-type">EDI Transaction Set {document.transaction_type}</div>
-            </div>
-            
-            <div class="section">
-                <h2>Document Information</h2>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>Sender ID</label>
-                        <value>{document.sender_id or '—'}</value>
-                    </div>
-                    <div class="info-item">
-                        <label>Receiver ID</label>
-                        <value>{document.receiver_id or '—'}</value>
-                    </div>
-                    <div class="info-item">
-                        <label>Control Number</label>
-                        <value>{document.control_number or '—'}</value>
-                    </div>
-                    <div class="info-item">
-                        <label>Date</label>
-                        <value>{document.date or '—'}</value>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="section">
-                <h2>Line Items</h2>
-                {line_items_html if line_items_html else '<p>No line items in this document.</p>'}
-            </div>
-            
-            <div class="footer">
-                Generated by EDI.email | Transform EDI files into readable formats
-            </div>
-        </body>
-        </html>
-        """
+        # Summary section
+        total_amount = document.summary.get("total_amount") or document.summary.get("calculated_total")
+        if total_amount:
+            elements.append(Paragraph("Summary", self.styles['SectionTitle']))
+            elements.append(Paragraph(
+                f"<b>Total Amount:</b> ${total_amount:,.2f}",
+                ParagraphStyle(
+                    name='TotalAmount',
+                    parent=self.styles['Normal'],
+                    fontSize=16,
+                    textColor=colors.HexColor('#059669'),
+                    spaceBefore=10
+                )
+            ))
         
-        return html
+        elements.append(Spacer(1, 30))
+        elements.append(Paragraph(
+            "Generated by ReadableEDI — Transform EDI files into readable formats",
+            self.styles['Footer']
+        ))
+        
+        return elements
+    
+    def _build_order_info(self, document: EDIDocument) -> List:
+        """Build order information table."""
+        data = []
+        
+        info_items = [
+            ("PO Number", document.header.get("po_number", "—")),
+            ("PO Date", document.header.get("po_date", "—")),
+            ("Purpose", document.header.get("purpose", "—")),
+            ("Order Type", document.header.get("order_type", "—")),
+            ("Sender ID", document.sender_id or "—"),
+            ("Receiver ID", document.receiver_id or "—"),
+            ("Payment Terms", document.header.get("payment_terms", "—")),
+            ("F.O.B.", document.header.get("fob", "—")),
+        ]
+        
+        # Build 2-column layout
+        row = []
+        for i, (label, value) in enumerate(info_items):
+            if value and value != "—":
+                row.append(f"{label}: {value}")
+                if len(row) == 2:
+                    data.append(row)
+                    row = []
+        if row:
+            row.append("")
+            data.append(row)
+        
+        if not data:
+            return []
+        
+        table = Table(data, colWidths=[3*inch, 3*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1e293b')),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ]))
+        
+        return [table, Spacer(1, 10)]
+    
+    def _build_parties_table(self, parties: List) -> List:
+        """Build parties table with proper text wrapping."""
+        elements = []
+        
+        # Create a style for wrapped text
+        wrap_style = ParagraphStyle(
+            name='PartyText',
+            parent=self.styles['Normal'],
+            fontSize=9,
+            leading=12,
+        )
+        name_style = ParagraphStyle(
+            name='PartyName',
+            parent=self.styles['Normal'],
+            fontSize=10,
+            fontName='Helvetica-Bold',
+            leading=12,
+        )
+        
+        for party in parties[:4]:  # Limit to 4
+            name = party.get("name", "Unknown")
+            party_type = party.get("type", party.get("type_code", ""))
+            
+            address_parts = []
+            if party.get("address_line1"):
+                address_parts.append(party["address_line1"])
+            if party.get("address_line2"):
+                address_parts.append(party["address_line2"])
+            city_state = ", ".join(filter(None, [
+                party.get("city", ""),
+                party.get("state", "")
+            ]))
+            if city_state:
+                zip_code = party.get("zip", "")
+                address_parts.append(f"{city_state} {zip_code}".strip())
+            
+            address = "<br/>".join(address_parts)
+            
+            # Create table row with wrapped text
+            data = [[
+                Paragraph(f"<b>[{party_type}]</b>", wrap_style),
+                Paragraph(f"<b>{name}</b>", name_style),
+                Paragraph(address, wrap_style)
+            ]]
+            
+            table = Table(data, colWidths=[0.7*inch, 2.5*inch, 2.8*inch])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#dbeafe')),
+                ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1e40af')),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ]))
+            
+            elements.append(table)
+            elements.append(Spacer(1, 4))
+        
+        elements.append(Spacer(1, 6))
+        return elements
+    
+    def _build_line_items_table(self, line_items: List) -> List:
+        """Build line items table with proper text wrapping."""
+        # Create styles for wrapped text
+        header_style = ParagraphStyle(
+            name='TableHeader',
+            parent=self.styles['Normal'],
+            fontSize=8,
+            fontName='Helvetica-Bold',
+            textColor=colors.white,
+            alignment=TA_CENTER,
+        )
+        cell_style = ParagraphStyle(
+            name='TableCell',
+            parent=self.styles['Normal'],
+            fontSize=8,
+            leading=10,
+        )
+        right_style = ParagraphStyle(
+            name='TableCellRight',
+            parent=self.styles['Normal'],
+            fontSize=8,
+            leading=10,
+            alignment=TA_RIGHT,
+        )
+        center_style = ParagraphStyle(
+            name='TableCellCenter',
+            parent=self.styles['Normal'],
+            fontSize=8,
+            leading=10,
+            alignment=TA_CENTER,
+        )
+        
+        # Header row
+        headers = ['Line', 'Product ID', 'Description', 'Qty', 'Unit', 'Price', 'Total']
+        header_row = [Paragraph(f"<b>{h}</b>", header_style) for h in headers]
+        data = [header_row]
+        
+        for item in line_items:
+            line_num = str(item.get("line_number", "—"))
+            product_id = str(item.get("product_id", "—"))
+            description = str(item.get("description", "—"))
+            qty = str(item.get("quantity", "—"))
+            unit = str(item.get("unit", "—"))
+            
+            unit_price = item.get("unit_price", "—")
+            try:
+                unit_price = f"${float(unit_price):,.2f}"
+            except (ValueError, TypeError):
+                unit_price = "—"
+            
+            total = item.get("total", "")
+            try:
+                total = f"${float(total):,.2f}" if total else "—"
+            except (ValueError, TypeError):
+                total = "—"
+            
+            row = [
+                Paragraph(line_num, center_style),
+                Paragraph(product_id, cell_style),
+                Paragraph(description, cell_style),
+                Paragraph(qty, center_style),
+                Paragraph(unit, center_style),
+                Paragraph(unit_price, right_style),
+                Paragraph(total, right_style),
+            ]
+            data.append(row)
+        
+        # Adjusted column widths to fit content better
+        table = Table(data, colWidths=[0.4*inch, 0.9*inch, 2.3*inch, 0.4*inch, 0.4*inch, 0.7*inch, 0.7*inch])
+        table.setStyle(TableStyle([
+            # Header row
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+            ('TOPPADDING', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            # Data rows
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        
+        return [table, Spacer(1, 10)]

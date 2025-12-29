@@ -23,10 +23,10 @@ export default function Home() {
 
                         {/* Headline */}
                         <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight tracking-tight">
-                            Forward EDI files.
+                            Load EDI files.
                             <br />
                             <span className="bg-gradient-to-r from-primary-600 via-violet-600 to-primary-600 bg-clip-text text-transparent">
-                                Get readable PDFs.
+                                Get readable files.
                             </span>
                         </h1>
 
@@ -313,7 +313,7 @@ export default function Home() {
                                 <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-xl flex items-center justify-center">
                                     <Mail className="w-5 h-5 text-white" />
                                 </div>
-                                <span className="text-xl font-bold text-white">EDI.email</span>
+                                <span className="text-xl font-bold text-white">ReadableEDI</span>
                             </div>
                             <p className="text-slate-400 max-w-sm">
                                 The Mailchimp of EDI — dead simple automation that just works.
@@ -338,7 +338,7 @@ export default function Home() {
                         </div>
                     </div>
                     <div className="pt-8 border-t border-slate-800 text-center text-slate-500">
-                        <p>© 2024 EDI.email. All rights reserved.</p>
+                        <p>© 2025 ReadableEDI. All rights reserved.</p>
                     </div>
                 </div>
             </footer>

@@ -5,21 +5,21 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-    title: "EDI.email - Transform EDI Files to PDF, Excel, HTML",
-    description: "Convert complex EDI files into human-readable formats (PDF, Excel, HTML) through email automation. Forward EDI files, get readable PDFs back in seconds.",
-    keywords: ["EDI", "EDI converter", "EDI to PDF", "EDI to Excel", "850", "810", "856", "purchase order", "invoice", "ASN"],
-    authors: [{ name: "EDI.email" }],
+    title: "ReadableEDI - Transform Complex EDI Files to PDF, Excel, HTML",
+    description: "Convert complex EDI files into human-readable formats (PDF, Excel, HTML) through email automation. Upload EDI files, get readable PDFs back in seconds.",
+    keywords: ["EDI", "EDI converter", "EDI to PDF", "EDI to Excel", "850", "810", "856", "purchase order", "invoice", "ASN", "ReadableEDI"],
+    authors: [{ name: "ReadableEDI" }],
     openGraph: {
-        title: "EDI.email - Transform EDI Files to PDF, Excel, HTML",
-        description: "Forward EDI files. Get readable PDFs. That's it.",
-        url: "https://edi.email",
-        siteName: "EDI.email",
+        title: "ReadableEDI - Transform Complex EDI Files to PDF, Excel, HTML",
+        description: "Upload EDI files. Get readable PDFs. That's it.",
+        url: "https://readableedi.com",
+        siteName: "ReadableEDI",
         type: "website",
     },
     twitter: {
         card: "summary_large_image",
-        title: "EDI.email - Transform EDI Files to PDF, Excel, HTML",
-        description: "Forward EDI files. Get readable PDFs. That's it.",
+        title: "ReadableEDI - Transform Complex EDI Files to PDF, Excel, HTML",
+        description: "Upload EDI files. Get readable PDFs. That's it.",
     },
 };
 
@@ -29,8 +29,8 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en">
-            <body className={inter.className}>
+        <html lang="en" suppressHydrationWarning>
+            <body className={inter.className} suppressHydrationWarning>
                 {children}
             </body>
         </html>

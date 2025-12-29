@@ -2,10 +2,11 @@
 Base EDI Parser class.
 
 All transaction-specific parsers inherit from this base class.
+Supports parsing multiple transaction sets (ST/SE) from a single interchange.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
 
@@ -55,24 +56,135 @@ class BaseEDIParser(ABC):
     def parse(self, content: str) -> EDIDocument:
         """
         Parse EDI content into a structured document.
+        Returns the FIRST transaction set found.
         
         Args:
             content: Raw EDI file content
             
         Returns:
-            Parsed EDIDocument
+            Parsed EDIDocument (first transaction set)
+        """
+        documents = self.parse_all(content)
+        if documents:
+            return documents[0]
+        
+        # Return empty document if no transaction sets found
+        return EDIDocument(
+            transaction_type=self.TRANSACTION_TYPE,
+            transaction_name=self.TRANSACTION_NAME,
+        )
+    
+    def parse_all(self, content: str) -> List[EDIDocument]:
+        """
+        Parse ALL transaction sets from an EDI interchange.
+        
+        An EDI file can contain multiple transaction sets (ST/SE loops).
+        This method parses each one separately.
+        
+        Args:
+            content: Raw EDI file content
+            
+        Returns:
+            List of parsed EDIDocument objects
         """
         # Detect delimiters from ISA segment if present
         self._detect_delimiters(content)
         
         # Split into segments
-        segments = self._split_segments(content)
+        all_segments = self._split_segments(content)
         
-        # Parse the document
-        document = self._parse_segments(segments)
-        document.raw_segments = segments
+        # Extract ISA/GS envelope data
+        isa_data = self._extract_envelope_data(all_segments)
         
-        return document
+        # Split into transaction sets (ST to SE)
+        transaction_sets = self._split_transaction_sets(all_segments)
+        
+        # Parse each transaction set
+        documents = []
+        for ts_segments in transaction_sets:
+            # Combine envelope segments with transaction set for context
+            full_segments = isa_data["envelope_segments"] + ts_segments
+            document = self._parse_segments(full_segments)
+            document.raw_segments = ts_segments
+            
+            # Apply envelope data if not already set
+            if not document.sender_id:
+                document.sender_id = isa_data.get("sender_id")
+            if not document.receiver_id:
+                document.receiver_id = isa_data.get("receiver_id")
+            if not document.control_number:
+                document.control_number = isa_data.get("control_number")
+            if not document.date:
+                document.date = isa_data.get("date")
+                
+            documents.append(document)
+        
+        return documents
+    
+    def _extract_envelope_data(self, segments: list) -> Dict[str, Any]:
+        """Extract ISA/GS envelope data that applies to all transaction sets."""
+        envelope_segments = []
+        data = {}
+        
+        for seg in segments:
+            parsed = self._parse_segment(seg)
+            seg_id = parsed["id"]
+            
+            if seg_id == "ISA":
+                envelope_segments.append(seg)
+                elems = parsed["elements"]
+                data["sender_id"] = elems[5].strip() if len(elems) > 5 else None
+                data["receiver_id"] = elems[7].strip() if len(elems) > 7 else None
+                data["control_number"] = elems[12].strip() if len(elems) > 12 else None
+                # Date from ISA09
+                if len(elems) > 8:
+                    isa_date = elems[8].strip()
+                    if len(isa_date) == 6:
+                        data["date"] = f"20{isa_date[:2]}-{isa_date[2:4]}-{isa_date[4:6]}"
+                        
+            elif seg_id == "GS":
+                envelope_segments.append(seg)
+                elems = parsed["elements"]
+                if len(elems) > 3:
+                    gs_date = elems[3]
+                    if len(gs_date) == 8:
+                        data["date"] = f"{gs_date[:4]}-{gs_date[4:6]}-{gs_date[6:8]}"
+            
+            elif seg_id in ("GE", "IEA"):
+                # Stop processing envelope after header
+                break
+            elif seg_id == "ST":
+                # Stop at first transaction set
+                break
+        
+        data["envelope_segments"] = envelope_segments
+        return data
+    
+    def _split_transaction_sets(self, segments: list) -> List[List[str]]:
+        """Split segments into individual transaction sets (ST to SE)."""
+        transaction_sets = []
+        current_ts = []
+        in_transaction = False
+        
+        for seg in segments:
+            parsed = self._parse_segment(seg)
+            seg_id = parsed["id"]
+            
+            if seg_id == "ST":
+                # Start of new transaction set
+                in_transaction = True
+                current_ts = [seg]
+            elif seg_id == "SE":
+                # End of transaction set
+                if in_transaction:
+                    current_ts.append(seg)
+                    transaction_sets.append(current_ts)
+                    current_ts = []
+                    in_transaction = False
+            elif in_transaction:
+                current_ts.append(seg)
+        
+        return transaction_sets
     
     def _detect_delimiters(self, content: str) -> None:
         """Detect delimiters from the ISA segment."""

@@ -10,12 +10,21 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # Application
-    APP_NAME: str = "EDI.email"
+    APP_NAME: str = "ReadableEDI"
     DEBUG: bool = False
     SECRET_KEY: str = "change-me-in-production"
     
-    # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    # CORS - Allow localhost and production domains
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "https://readableedi.com",
+        "https://www.readableedi.com",
+        "https://*.vercel.app",
+    ]
+    
+    # Email (Resend)
+    RESEND_API_KEY: str = ""
+    FROM_EMAIL: str = "hello@readableedi.com"
     
     # Database
     DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/edi_email"
@@ -28,7 +37,7 @@ class Settings(BaseSettings):
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_S3_BUCKET: str = "edi-email-files"
-    AWS_SES_FROM_EMAIL: str = "noreply@edi.email"
+    AWS_SES_FROM_EMAIL: str = "noreply@readableedi.com"
     
     # File Storage
     MAX_FILE_SIZE_MB: int = 10

@@ -1,44 +1,36 @@
 # FastAPI Core
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-python-multipart==0.0.6
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
 
-# EDI Parsing
-pyx12==2.4.0
-
-# PDF Generation
-weasyprint==62.0
+# PDF Generation (using simple HTML-to-PDF approach)
+# weasyprint requires system dependencies - will use reportlab as fallback
+reportlab>=4.0.0
 
 # Excel Generation
-openpyxl==3.1.2
-xlsxwriter==3.1.9
+openpyxl>=3.1.2
 
 # HTML Templating
-jinja2==3.1.3
+jinja2>=3.1.3
 
 # Database
-sqlalchemy==2.0.25
-asyncpg==0.29.0
-alembic==1.13.1
+sqlalchemy>=2.0.25
+alembic>=1.13.1
 
 # Authentication
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-
-# AWS
-boto3==1.34.34
-
-# Redis
-redis==5.0.1
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
 
 # Validation & Settings
-pydantic==2.5.3
-pydantic-settings==2.1.0
-email-validator==2.1.0
+pydantic>=2.5.3
+pydantic-settings>=2.1.0
 
 # HTTP Client
-httpx==0.26.0
+httpx>=0.26.0
 
 # Utilities
-python-dotenv==1.0.0
-orjson==3.9.12
+python-dotenv>=1.0.0
+
+# Email Service
+resend>=2.0.0
+email-validator>=2.0.0

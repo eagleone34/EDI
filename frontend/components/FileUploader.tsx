@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { FileUp, X, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { FileUp, X, CheckCircle, AlertCircle, Loader2, ChevronDown, Lock } from "lucide-react";
+import { EmailGateModal } from "./EmailGateModal";
 
 interface ConversionResult {
     id: string;
     status: "success" | "error";
     transactionType: string;
     transactionName: string;
+    transactionCount?: number;
     processingTime: number;
     downloads: {
         pdf?: string;
@@ -20,12 +22,24 @@ interface FileUploaderProps {
     onConversionComplete?: (result: ConversionResult) => void;
 }
 
+const TRANSACTION_TYPES = [
+    { code: "850", name: "Purchase Order" },
+    { code: "810", name: "Invoice" },
+    { code: "856", name: "Advance Ship Notice (ASN)" },
+    { code: "855", name: "Purchase Order Acknowledgment" },
+    { code: "997", name: "Functional Acknowledgment" },
+];
+
 export function FileUploader({ onConversionComplete }: FileUploaderProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
+    const [transactionType, setTransactionType] = useState("850");
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<ConversionResult | null>(null);
+    const [isVerified, setIsVerified] = useState(false);
+    const [showEmailModal, setShowEmailModal] = useState(false);
+    const [pendingDownload, setPendingDownload] = useState<{ url: string; filename: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const allowedExtensions = [".edi", ".txt", ".x12", ".dat"];
@@ -84,41 +98,100 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
             const formData = new FormData();
             formData.append("file", file);
             formData.append("formats", "pdf,excel,html");
+            formData.append("transaction_type", transactionType);
 
-            // Call the backend API
+            // Try calling the real backend API
             const response = await fetch("/api/v1/convert", {
                 method: "POST",
                 body: formData,
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || "Conversion failed");
+                const errorText = await response.text();
+                let errorMessage = "Conversion failed";
+                try {
+                    const errorData = JSON.parse(errorText);
+                    errorMessage = errorData.detail || errorMessage;
+                } catch {
+                    if (errorText.includes("Internal Server Error")) {
+                        throw new Error("Backend not running");
+                    }
+                    errorMessage = errorText || errorMessage;
+                }
+                throw new Error(errorMessage);
             }
 
             const data = await response.json();
 
-            // For now, simulate a successful response since backend isn't fully wired
-            const mockResult: ConversionResult = {
+            const apiResult: ConversionResult = {
                 id: data.id || `conv_${Date.now()}`,
                 status: "success",
                 transactionType: data.transactionType || "850",
                 transactionName: data.transactionName || "Purchase Order",
-                processingTime: data.processingTime || 1234,
+                transactionCount: data.transactionCount || 1,
+                processingTime: data.processingTime || 1000,
                 downloads: {
-                    pdf: data.downloads?.pdf || "#",
-                    excel: data.downloads?.excel || "#",
-                    html: data.downloads?.html || "#",
+                    pdf: data.outputs?.pdf ? `data:application/pdf;base64,${data.outputs.pdf}` : undefined,
+                    excel: data.outputs?.excel ? `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${data.outputs.excel}` : undefined,
+                    html: data.outputs?.html ? `data:text/html;base64,${data.outputs.html}` : undefined,
                 },
             };
 
-            setResult(mockResult);
-            onConversionComplete?.(mockResult);
+            setResult(apiResult);
+            onConversionComplete?.(apiResult);
+
         } catch (err) {
-            setError(err instanceof Error ? err.message : "An error occurred");
+            const errorMessage = err instanceof Error ? err.message : "An error occurred";
+
+            // If backend not running, fall back to demo mode
+            if (errorMessage.includes("Backend not running") || errorMessage.includes("fetch")) {
+                await runDemoMode();
+            } else {
+                setError(errorMessage);
+            }
         } finally {
             setIsUploading(false);
         }
+    };
+
+    const runDemoMode = async () => {
+        // Simulate processing delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Detect transaction type from filename
+        const filename = file!.name.toLowerCase();
+        let transactionType = "850";
+        let transactionName = "Purchase Order";
+
+        if (filename.includes("810") || filename.includes("invoice")) {
+            transactionType = "810";
+            transactionName = "Invoice";
+        } else if (filename.includes("856") || filename.includes("asn") || filename.includes("ship")) {
+            transactionType = "856";
+            transactionName = "Advance Ship Notice";
+        } else if (filename.includes("855") || filename.includes("ack")) {
+            transactionType = "855";
+            transactionName = "Purchase Order Acknowledgment";
+        } else if (filename.includes("997") || filename.includes("func")) {
+            transactionType = "997";
+            transactionName = "Functional Acknowledgment";
+        }
+
+        const demoResult: ConversionResult = {
+            id: `demo_${Date.now()}`,
+            status: "success",
+            transactionType,
+            transactionName,
+            processingTime: 1234 + Math.random() * 500,
+            downloads: {
+                pdf: "#demo-pdf",
+                excel: "#demo-excel",
+                html: "#demo-html",
+            },
+        };
+
+        setResult(demoResult);
+        onConversionComplete?.(demoResult);
     };
 
     const handleReset = () => {
@@ -130,59 +203,166 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
         }
     };
 
+    // Helper function to download base64 data as a file
+    const handleDownload = (dataUrl: string, filename: string) => {
+        console.log("handleDownload called", { dataUrl: dataUrl.substring(0, 50), filename, isVerified });
+
+        if (dataUrl.startsWith("#")) {
+            alert("Demo mode: Downloads not available");
+            return;
+        }
+
+        // Check if user is verified
+        if (!isVerified) {
+            console.log("Not verified, showing email modal");
+            setPendingDownload({ url: dataUrl, filename });
+            setShowEmailModal(true);
+            console.log("showEmailModal set to true");
+            return;
+        }
+
+        performDownload(dataUrl, filename);
+    };
+
+    const performDownload = (dataUrl: string, filename: string) => {
+
+        // Extract base64 data from data URL
+        const base64Match = dataUrl.match(/base64,(.+)/);
+        if (!base64Match) {
+            console.error("Invalid data URL format");
+            return;
+        }
+
+        const base64Data = base64Match[1];
+
+        // Determine MIME type based on filename extension
+        let mimeType = "application/octet-stream";
+        if (filename.endsWith(".pdf") || filename.endsWith(".html")) {
+            mimeType = "text/html"; // PDF is actually HTML for now
+        } else if (filename.endsWith(".xlsx")) {
+            mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        }
+
+        try {
+            // Convert base64 to blob
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: mimeType });
+
+            // Use saveAs-like approach
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.style.display = "none";
+            link.href = url;
+            link.setAttribute("download", filename);
+
+            // Append to body and click
+            document.body.appendChild(link);
+            link.click();
+
+            // Cleanup after a delay
+            setTimeout(() => {
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+            }, 100);
+        } catch (error) {
+            console.error("Download failed:", error);
+            alert("Download failed. Please try again.");
+        }
+    };
+
     // Show result view
     if (result) {
+        const isDemoMode = result.id.startsWith("demo_");
+        const baseFilename = file?.name.replace(/\.[^.]+$/, "") || "converted";
+
         return (
-            <div className="bg-white rounded-2xl p-8 shadow-lg border border-green-200">
-                <div className="text-center">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <CheckCircle className="w-8 h-8 text-green-600" />
-                    </div>
-                    <h3 className="text-xl font-semibold mb-2">Conversion Complete!</h3>
-                    <p className="text-slate-600 mb-6">
-                        {result.transactionName} (EDI {result.transactionType}) processed in{" "}
-                        {(result.processingTime / 1000).toFixed(2)}s
-                    </p>
+            <>
+                <div className="bg-white rounded-2xl p-8 shadow-lg border border-green-200">
+                    <div className="text-center">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle className="w-8 h-8 text-green-600" />
+                        </div>
+                        <h3 className="text-xl font-semibold mb-2">Conversion Complete!</h3>
+                        {isDemoMode && (
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium mb-4">
+                                🎭 Demo Mode - Backend not connected
+                            </div>
+                        )}
+                        {(result.transactionCount ?? 1) > 1 && (
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
+                                📦 Found {result.transactionCount} Purchase Orders in this file
+                            </div>
+                        )}
+                        <p className="text-slate-600 mb-6">
+                            {(result.transactionCount ?? 1) > 1
+                                ? `${result.transactionCount} ${result.transactionName}s processed in `
+                                : `${result.transactionName} (EDI ${result.transactionType}) processed in `}
+                            {(result.processingTime / 1000).toFixed(2)}s
+                        </p>
 
-                    {/* Download buttons */}
-                    <div className="flex flex-wrap justify-center gap-3 mb-6">
-                        {result.downloads.pdf && (
-                            <a
-                                href={result.downloads.pdf}
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors"
-                            >
-                                <FileUp className="w-4 h-4" />
-                                Download PDF
-                            </a>
-                        )}
-                        {result.downloads.excel && (
-                            <a
-                                href={result.downloads.excel}
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-                            >
-                                <FileUp className="w-4 h-4" />
-                                Download Excel
-                            </a>
-                        )}
-                        {result.downloads.html && (
-                            <a
-                                href={result.downloads.html}
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors"
-                            >
-                                <FileUp className="w-4 h-4" />
-                                View HTML
-                            </a>
-                        )}
-                    </div>
+                        {/* Download buttons */}
+                        <div className="flex flex-wrap justify-center gap-3 mb-6">
+                            {result.downloads.pdf && (
+                                <button
+                                    onClick={() => handleDownload(result.downloads.pdf!, `${baseFilename}.pdf`)}
+                                    className="inline-flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors"
+                                >
+                                    <FileUp className="w-4 h-4" />
+                                    Download PDF
+                                </button>
+                            )}
+                            {result.downloads.excel && (
+                                <button
+                                    onClick={() => handleDownload(result.downloads.excel!, `${baseFilename}.xlsx`)}
+                                    className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+                                >
+                                    <FileUp className="w-4 h-4" />
+                                    Download Excel
+                                </button>
+                            )}
+                            {result.downloads.html && (
+                                <button
+                                    onClick={() => handleDownload(result.downloads.html!, `${baseFilename}.html`)}
+                                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                                >
+                                    <FileUp className="w-4 h-4" />
+                                    Download HTML
+                                </button>
+                            )}
+                        </div>
 
-                    <button
-                        onClick={handleReset}
-                        className="text-slate-500 hover:text-slate-700 transition-colors"
-                    >
-                        Convert another file
-                    </button>
+                        <button
+                            onClick={handleReset}
+                            className="text-slate-500 hover:text-slate-700 transition-colors"
+                        >
+                            Convert another file
+                        </button>
+                    </div>
                 </div>
-            </div>
+
+                {/* Email Gate Modal - must be here for result view */}
+                <EmailGateModal
+                    isOpen={showEmailModal}
+                    onClose={() => {
+                        setShowEmailModal(false);
+                        setPendingDownload(null);
+                    }}
+                    onVerified={(email, token) => {
+                        setIsVerified(true);
+                        setShowEmailModal(false);
+                        // Process pending download
+                        if (pendingDownload) {
+                            performDownload(pendingDownload.url, pendingDownload.filename);
+                            setPendingDownload(null);
+                        }
+                    }}
+                />
+            </>
         );
     }
 
@@ -261,6 +441,27 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
             {/* Convert button */}
             {file && !error && (
                 <div className="mt-6 text-center">
+                    {/* Transaction Type Selector */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                            Select Transaction Type
+                        </label>
+                        <div className="relative inline-block">
+                            <select
+                                value={transactionType}
+                                onChange={(e) => setTransactionType(e.target.value)}
+                                className="appearance-none px-4 py-2.5 pr-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white text-slate-700 font-medium min-w-[280px]"
+                            >
+                                {TRANSACTION_TYPES.map((type) => (
+                                    <option key={type.code} value={type.code}>
+                                        {type.code} - {type.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                        </div>
+                    </div>
+
                     <button
                         onClick={handleUpload}
                         disabled={isUploading}
@@ -289,6 +490,25 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                     </p>
                 </div>
             )}
+
+            {/* Email Gate Modal */}
+            <EmailGateModal
+                isOpen={showEmailModal}
+                onClose={() => {
+                    setShowEmailModal(false);
+                    setPendingDownload(null);
+                }}
+                onVerified={(email, token) => {
+                    setIsVerified(true);
+                    setShowEmailModal(false);
+                    // Process pending download
+                    if (pendingDownload) {
+                        performDownload(pendingDownload.url, pendingDownload.filename);
+                        setPendingDownload(null);
+                    }
+                }}
+            />
         </div>
     );
 }
+
