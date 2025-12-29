@@ -11,7 +11,7 @@ from pydantic import BaseModel, EmailStr
 from app.services.email_service import email_service
 
 
-router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+router = APIRouter()
 
 # In-memory storage for demo (replace with database in production)
 verification_codes = {}
