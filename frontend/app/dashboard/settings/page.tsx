@@ -22,15 +22,29 @@ export default function IntegrationsPage() {
         setIsTesting(true);
         setTestResult(null);
 
-        // Mock test for now (until backend endpoint exists)
-        setTimeout(() => {
-            setIsTesting(false);
-            if (host && username) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v1/integrations/test`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    type: "sftp",
+                    config: { host, username, password, port }
+                }),
+            });
+            const data = await response.json();
+
+            if (data.success) {
                 setTestResult("success");
             } else {
                 setTestResult("error");
+                // TODO: Store error message to display
             }
-        }, 1500);
+        } catch (error) {
+            console.error("Test failed:", error);
+            setTestResult("error");
+        } finally {
+            setIsTesting(false);
+        }
     };
 
     return (
@@ -86,8 +100,8 @@ export default function IntegrationsPage() {
                                     <button
                                         onClick={() => setProtocol("sftp")}
                                         className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-all ${protocol === "sftp"
-                                                ? "bg-blue-50 border-blue-200 text-blue-700 ring-1 ring-blue-200"
-                                                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                                            ? "bg-blue-50 border-blue-200 text-blue-700 ring-1 ring-blue-200"
+                                            : "border-slate-200 text-slate-600 hover:bg-slate-50"
                                             }`}
                                     >
                                         SFTP Server
@@ -95,8 +109,8 @@ export default function IntegrationsPage() {
                                     <button
                                         onClick={() => setProtocol("gdrive")}
                                         className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-all ${protocol === "gdrive"
-                                                ? "bg-blue-50 border-blue-200 text-blue-700 ring-1 ring-blue-200"
-                                                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                                            ? "bg-blue-50 border-blue-200 text-blue-700 ring-1 ring-blue-200"
+                                            : "border-slate-200 text-slate-600 hover:bg-slate-50"
                                             }`}
                                     >
                                         Google Drive
@@ -159,9 +173,24 @@ export default function IntegrationsPage() {
                                 </div>
                             )}
 
-                            {protocol !== "sftp" && (
-                                <div className="p-4 bg-slate-50 rounded-lg text-sm text-slate-600">
-                                    Please use SFTP for the initial setup. Cloud drive integrations (Google/OneDrive) will be enabled in the next update.
+                            {(protocol === "gdrive" || protocol === "onedrive") && (
+                                <div className="space-y-4 animate-in fade-in">
+                                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700 flex items-start gap-3">
+                                        <div className="mt-0.5 font-bold">ℹ️</div>
+                                        <div>
+                                            Authorization required. You will be redirected to {protocol === "gdrive" ? "Google" : "Microsoft"} to approve access.
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Connection Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder={`My ${protocol === 'gdrive' ? 'Google Drive' : 'OneDrive'}`}
+                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -169,8 +198,8 @@ export default function IntegrationsPage() {
                         {/* Testing Panel */}
                         <div className="bg-slate-50 rounded-xl p-6 flex flex-col justify-center items-center text-center space-y-4">
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${testResult === "success" ? "bg-green-100 text-green-600" :
-                                    testResult === "error" ? "bg-red-100 text-red-600" :
-                                        "bg-white border border-slate-200 text-slate-400"
+                                testResult === "error" ? "bg-red-100 text-red-600" :
+                                    "bg-white border border-slate-200 text-slate-400"
                                 }`}>
                                 {testResult === "success" ? <Check className="w-6 h-6" /> :
                                     testResult === "error" ? <X className="w-6 h-6" /> :
@@ -178,24 +207,38 @@ export default function IntegrationsPage() {
                             </div>
 
                             <div>
-                                <h4 className="font-semibold text-slate-800">Connection Test</h4>
-                                <p className="text-xs text-slate-500 mt-1">
+                                <h4 className="font-semibold text-slate-800">Connection Status</h4>
+                                <p className="text-xs text-slate-500 mt-1 max-w-[200px] mx-auto">
                                     {testResult === "success" ? "Connection verified successfully!" :
                                         testResult === "error" ? "Could not connect. Check credentials." :
-                                            "Enter details and test before saving."}
+                                            protocol === "sftp" ? "Enter details and test connection." :
+                                                "Click below to authenticate."}
                                 </p>
                             </div>
 
-                            <button
-                                onClick={handleTestConnection}
-                                disabled={isTesting || !host || !username}
-                                className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-all ${isTesting
+                            {protocol === "sftp" ? (
+                                <button
+                                    onClick={handleTestConnection}
+                                    disabled={isTesting || !host || !username}
+                                    className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-all ${isTesting
                                         ? "bg-slate-200 text-slate-500 cursor-wait"
                                         : "bg-white border border-slate-300 text-slate-700 hover:bg-white hover:shadow-sm"
-                                    }`}
-                            >
-                                {isTesting ? "Testing..." : "Test Connection"}
-                            </button>
+                                        }`}
+                                >
+                                    {isTesting ? "Testing..." : "Test SFTP Connection"}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        setIsTesting(true);
+                                        // Mock OAuth delay
+                                        setTimeout(() => { setIsTesting(false); setTestResult("success"); }, 2000);
+                                    }}
+                                    className="w-full py-2 px-4 rounded-lg text-sm font-medium bg-white border border-slate-300 text-slate-700 hover:bg-white hover:shadow-sm"
+                                >
+                                    {isTesting ? "Redirecting..." : `Connect ${protocol === 'gdrive' ? 'Google' : 'Microsoft'} Account`}
+                                </button>
+                            )}
 
                             {testResult === "success" && (
                                 <button className="w-full py-2 px-4 rounded-lg text-sm font-bold bg-green-600 text-white hover:bg-green-700 shadow-sm animate-in zoom-in duration-300">
