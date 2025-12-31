@@ -34,3 +34,7 @@ python-dotenv>=1.0.0
 # Email Service
 resend>=2.0.0
 email-validator>=2.0.0
+
+# Integrations (SFTP)
+paramiko>=3.4.0
+cryptography>=42.0.0

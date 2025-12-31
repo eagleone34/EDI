@@ -5,9 +5,7 @@ User model for ReadableEDI.
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import Column, String, DateTime, Integer, Boolean
-from sqlalchemy.orm import declarative_base
-
-Base = declarative_base()
+from app.models.base_class import Base
 
 
 class User(Base):

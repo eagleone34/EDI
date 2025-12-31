@@ -17,6 +17,12 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+from app.core.db import init_db
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
