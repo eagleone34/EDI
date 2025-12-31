@@ -7,6 +7,8 @@ import random
 import string
 from typing import Optional
 
+from app.core.config import settings
+
 try:
     import resend
     RESEND_AVAILABLE = True
@@ -18,8 +20,8 @@ class EmailService:
     """Email service for sending verification codes via Resend."""
     
     def __init__(self):
-        self.api_key = os.getenv("RESEND_API_KEY", "")
-        self.from_email = os.getenv("FROM_EMAIL", "hello@readableedi.com")
+        self.api_key = settings.RESEND_API_KEY
+        self.from_email = settings.FROM_EMAIL
         self.from_name = "ReadableEDI"
         
         if self.api_key and RESEND_AVAILABLE:
