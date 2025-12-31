@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { FileUp, X, CheckCircle, AlertCircle, Loader2, ChevronDown, Lock } from "lucide-react";
 import { EmailGateModal } from "./EmailGateModal";
 
@@ -31,6 +32,7 @@ const TRANSACTION_TYPES = [
 ];
 
 export function FileUploader({ onConversionComplete }: FileUploaderProps) {
+    const router = useRouter();
     const [isDragging, setIsDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [transactionType, setTransactionType] = useState("850");
@@ -361,6 +363,8 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                             performDownload(pendingDownload.url, pendingDownload.filename);
                             setPendingDownload(null);
                         }
+                        // Redirect to dashboard
+                        setTimeout(() => router.push('/dashboard'), 1000);
                     }}
                 />
             </>
@@ -507,6 +511,8 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                         performDownload(pendingDownload.url, pendingDownload.filename);
                         setPendingDownload(null);
                     }
+                    // Redirect to dashboard
+                    setTimeout(() => router.push('/dashboard'), 1000);
                 }}
             />
         </div>

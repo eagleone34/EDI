@@ -51,28 +51,100 @@ class EmailService:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f1f5f9;
+            color: #334155;
+        }}
+        .container {{
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }}
+        .card {{
+            background-color: #ffffff;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            text-align: center;
+        }}
+        .logo {{
+            margin-bottom: 24px;
+        }}
+        .logo-text {{
+            font-size: 24px;
+            font-weight: 800;
+            color: #1e40af;
+            text-decoration: none;
+            letter-spacing: -0.5px;
+        }}
+        h1 {{
+            color: #1e293b;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            margin-top: 0;
+        }}
+        p {{
+            font-size: 16px;
+            line-height: 1.6;
+            color: #475569;
+            margin-bottom: 24px;
+        }}
+        .code-container {{
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 1px solid #bfdbfe;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 32px 0;
+            display: inline-block;
+            min-width: 200px;
+        }}
+        .code {{
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 32px;
+            font-weight: 700;
+            color: #1e40af;
+            letter-spacing: 8px;
+        }}
+        .footer {{
+            margin-top: 32px;
+            text-align: center;
+            font-size: 13px;
+            color: #94a3b8;
+        }}
+        .footer a {{
+            color: #64748b;
+            text-decoration: underline;
+        }}
+    </style>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc;">
-    <div style="max-width: 480px; margin: 40px auto; padding: 40px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-        <h1 style="color: #1e40af; margin-bottom: 24px; font-size: 24px; text-align: center;">
-            ReadableEDI
-        </h1>
-        <p style="color: #1e293b; font-size: 16px; margin-bottom: 8px;">
-            Your verification code is:
-        </p>
-        <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
-            <span style="font-size: 36px; font-weight: 700; letter-spacing: 8px; color: white;">
-                {code}
-            </span>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo">
+                <a href="https://readableedi.com" class="logo-text">ReadableEDI</a>
+            </div>
+            <h1>Verify your email</h1>
+            <p>Use the following verification code to complete your login. This code will expire in 10 minutes.</p>
+            
+            <div class="code-container">
+                <div class="code">{code}</div>
+            </div>
+            
+            <p style="font-size: 14px; color: #64748b;">
+                If you didn't request this code, you can safely ignore this email.
+            </p>
         </div>
-        <p style="color: #64748b; font-size: 14px; margin-top: 24px;">
-            This code expires in 10 minutes. If you didn't request this, you can safely ignore this email.
-        </p>
-        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
-        <p style="color: #94a3b8; font-size: 12px; text-align: center;">
-            ReadableEDI — Transform EDI files into readable formats<br>
-            <a href="https://readableedi.com" style="color: #3b82f6;">readableedi.com</a>
-        </p>
+        <div class="footer">
+            <p>
+                &copy; {datetime.now().year} ReadableEDI. All rights reserved.<br>
+                Secure EDI Conversion Platform
+            </p>
+        </div>
     </div>
 </body>
 </html>
