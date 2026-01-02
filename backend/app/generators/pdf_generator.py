@@ -226,7 +226,12 @@ class PDFGenerator:
             section_title = "Order Information"
         
         elements.append(Paragraph(section_title, self.styles['SectionTitle']))
-        elements.extend(self._build_order_info(document))
+        
+        # Specialized info for 812
+        if doc_type == "812":
+            elements.extend(self._build_812_general_info(document))
+        else:
+            elements.extend(self._build_order_info(document))
         
         # Parties section
         parties = document.header.get("parties", [])
@@ -236,8 +241,12 @@ class PDFGenerator:
         
         # Line Items section
         if document.line_items:
-            elements.append(Paragraph(f"Line Items ({len(document.line_items)} items)", self.styles['SectionTitle']))
-            elements.extend(self._build_line_items_table(document.line_items))
+            if doc_type == "812":
+                elements.append(Paragraph(f"Adjustment Details ({len(document.line_items)} items)", self.styles['SectionTitle']))
+                elements.extend(self._build_812_details(document.line_items))
+            else:
+                elements.append(Paragraph(f"Line Items ({len(document.line_items)} items)", self.styles['SectionTitle']))
+                elements.extend(self._build_line_items_table(document.line_items))
         
         # Summary section
         total_amount = document.summary.get("total_amount") or document.summary.get("calculated_total")
@@ -453,3 +462,139 @@ class PDFGenerator:
         ]))
         
         return [table, Spacer(1, 10)]
+    def _build_812_general_info(self, document: EDIDocument) -> List:
+        """Build 812-specific general information table."""
+        h = document.header
+        data = []
+        
+        # Helper to add if exists
+        def add_row(label, value, color='#1e293b'):
+            if value:
+                return [Paragraph(f"<b>{label}:</b>", self.styles['InfoLabel']), 
+                        Paragraph(f"<b>{value}</b>", ParagraphStyle('Val', parent=self.styles['InfoValue'], textColor=colors.HexColor(color)))]
+            return None
+
+        # Build fields list
+        fields = [
+            ("Date", h.get("adjustment_date")),
+            ("Adj Number", h.get("credit_debit_number")),
+            ("Handling Code", h.get("transaction_handling_desc")),
+            ("Amount", h.get("amount")),
+            ("Flag Code", h.get("credit_debit_flag_desc")),
+            ("Invoice #", h.get("invoice_number")),
+            ("PO Number", h.get("po_number")),
+            ("Purpose", h.get("purpose_code")),
+            ("Type", h.get("transaction_type_desc")),
+            ("Currency", h.get("currency"))
+        ]
+        
+        row_buffer = []
+        for label, val in fields:
+            if val:
+                row_buffer.append(f"{label}: {val}")
+                if len(row_buffer) == 2:
+                    data.append(row_buffer)
+                    row_buffer = []
+        if row_buffer:
+            row_buffer.append("")
+            data.append(row_buffer)
+            
+        if not data:
+            return []
+            
+        # Contacts
+        contacts = h.get("contacts", [])
+        if contacts:
+            data.append(["----------", "----------"]) # Separator
+            for c in contacts:
+                if c.get("name"):
+                    data.append([f"Contact: {c['name']}", f"Tel: {c.get('comm_number', '—')}"])
+
+        # Styled Table (similar to Order Info)
+        table = Table(data, colWidths=[3.5*inch, 3.5*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1e40af')),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ]))
+        
+        return [table, Spacer(1, 10)]
+
+    def _build_812_details(self, line_items: List) -> List:
+        """Build 812 adjustment details blocks."""
+        elements = []
+        
+        detail_style = ParagraphStyle(
+            name='DetailLabel',
+            parent=self.styles['Normal'],
+            fontSize=9,
+            textColor=colors.HexColor('#475569'),
+        )
+        val_style = ParagraphStyle(
+            name='DetailValue',
+            parent=self.styles['Normal'],
+            fontSize=9,
+            textColor=colors.HexColor('#1e40af'),
+            fontName='Helvetica-Bold'
+        )
+
+        for item in line_items:
+            # Build data grid for each item
+            data = []
+            
+            # Helper to create row pair
+            def make_pair(l1, v1, l2=None, v2=None):
+                p1 = [Paragraph(l1, detail_style), Paragraph(v1 or "", val_style)]
+                p2 = [Paragraph(l2, detail_style), Paragraph(v2 or "", val_style)] if l2 else ["", ""]
+                return p1 + p2
+
+            # Row 1
+            data.append(make_pair(
+                "Reason:", item.get("adjustment_reason", "—"),
+                "Flag:", item.get("credit_debit_type", "—")
+            ))
+            # Row 2
+            amt = item.get("adjustment_amount", "—")
+            try: amt = f"${float(amt):,.2f}" 
+            except: pass
+            data.append(make_pair(
+                "Amount:", amt,
+                "Quantity:", item.get("quantity", "—")
+            ))
+            # Row 3
+            price = item.get("unit_price", "—")
+            try: price = f"${float(price):.2f}"
+            except: pass
+            data.append(make_pair(
+                "Unit Price:", price,
+                "Unit:", item.get("unit", "—")
+            ))
+            # Row 4 - Part Numbers
+            parts = item.get("part_numbers", {})
+            part_str = ", ".join([f"{k}: {v}" for k,v in parts.items()])
+            if part_str:
+                data.append([Paragraph("Parts:", detail_style), Paragraph(part_str, val_style), "", ""])
+            
+            # Message
+            if item.get("message"):
+                data.append([Paragraph("Note:", detail_style), Paragraph(item["message"], val_style), "", ""],)
+
+            # Create Table
+            table = Table(data, colWidths=[0.8*inch, 2.2*inch, 0.8*inch, 2.2*inch])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('SPAN', (1, -2), (3, -2)) if part_str else None, # Span parts row
+                ('SPAN', (1, -1), (3, -1)) if item.get("message") else None, # Span message row
+            ]))
+            
+            elements.append(table)
+            elements.append(Spacer(1, 8)) # Space between items
+            
+        return elements
