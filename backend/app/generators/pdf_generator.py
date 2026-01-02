@@ -467,12 +467,20 @@ class PDFGenerator:
         h = document.header
         data = []
         
+        # Format Amount
+        amount_val = h.get("amount")
+        if amount_val:
+            try:
+                amount_val = f"${float(amount_val):,.2f}"
+            except:
+                pass
+        
         # Build fields list
         fields = [
             ("Date", h.get("adjustment_date")),
             ("Adj Number", h.get("credit_debit_number")),
             ("Handling Code", h.get("transaction_handling_desc")),
-            ("Amount", h.get("amount")),
+            ("Amount", amount_val),
             ("Flag Code", h.get("credit_debit_flag_desc")),
             ("Invoice #", h.get("invoice_number")),
             ("PO Number", h.get("po_number")),

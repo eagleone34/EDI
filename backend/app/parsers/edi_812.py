@@ -14,6 +14,7 @@ TRANSACTION_HANDLING_CODES = {
     "I": "Invoice",
     "P": "Price Adjustment",
     "Z": "Mutually Defined",
+    "A": "Off Invoice (Deduction from Original Invoice)",  # Mapped to match user expectation
 }
 
 CREDIT_DEBIT_FLAG_CODES = {
@@ -146,21 +147,21 @@ class EDI812Parser(BaseEDIParser):
             if len(elements) > 6 and elements[6]:
                 document.header["invoice_number"] = elements[6]
             
-            # BCD08 - Date (tertiary date)
-            if len(elements) > 7 and elements[7]:
-                document.header["tertiary_date"] = self._format_date(elements[7])
+            # BCD08 - Date (PO Date in this context?)
+            if len(elements) > 8 and elements[8]:
+                document.header["po_date"] = self._format_date(elements[8])
             
             # BCD09 - Purchase Order Number
-            if len(elements) > 8 and elements[8]:
-                document.header["po_number"] = elements[8]
+            if len(elements) > 9 and elements[9]:
+                document.header["po_number"] = elements[9]
             
             # BCD10 - Transaction Set Purpose Code
-            if len(elements) > 9 and elements[9]:
-                document.header["purpose_code"] = elements[9]
-            
-            # BCD11 - Transaction Type Code (Debit Memo, Credit Memo, etc.)
             if len(elements) > 10 and elements[10]:
-                code = elements[10]
+                document.header["purpose_code"] = elements[10]
+            
+            # BCD11 - Transaction Type Code
+            if len(elements) > 11 and elements[11]:
+                code = elements[11]
                 document.header["transaction_type_code"] = code
                 document.header["transaction_type_desc"] = TRANSACTION_TYPE_CODES.get(code, code)
         
