@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Server, Check, X } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
+import EmailRoutesSettings from "@/components/dashboard/EmailRoutesSettings";
 
 export default function IntegrationsPage() {
     const [isAdding, setIsAdding] = useState(false);
@@ -249,6 +250,9 @@ export default function IntegrationsPage() {
                     </div>
                 </div>
             )}
+
+            {/* Email Routing Section */}
+            <EmailRoutesSettings />
         </div>
     );
 }

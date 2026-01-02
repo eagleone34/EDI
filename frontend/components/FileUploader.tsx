@@ -24,6 +24,8 @@ interface ConversionResult {
     selectedType?: string;
     typeMismatch?: boolean;
     warning?: string;
+    // Trading partner
+    tradingPartner?: string;
 }
 
 interface FileUploaderProps {
@@ -159,6 +161,8 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                 selectedType: data.selectedType,
                 typeMismatch: data.typeMismatch,
                 warning: data.warning,
+                // Trading partner
+                tradingPartner: data.tradingPartner,
             };
 
             setResult(apiResult);
@@ -175,6 +179,7 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                         transaction_type: apiResult.transactionType,
                         transaction_name: apiResult.transactionName,
                         transaction_count: apiResult.transactionCount || 1,
+                        trading_partner: apiResult.tradingPartner || null,
                     };
                     console.log("📝 Saving document:", docData);
 

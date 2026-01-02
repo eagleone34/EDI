@@ -148,6 +148,25 @@ async def convert_edi_file(
                 "lineItems": line_count,
             })
         
+        # Extract trading partner from parties (prioritize: BY=Buyer, ST=Ship To, VN=Vendor)
+        trading_partner = None
+        if documents and hasattr(documents[0], 'header'):
+            parties = documents[0].header.get("parties", [])
+            for party in parties:
+                if party.get("type_code") in ["BY", "ST", "VN", "SE"]:
+                    if party.get("name"):
+                        trading_partner = party.get("name")
+                        break
+            # Fallback: use first party with a name
+            if not trading_partner and parties:
+                for party in parties:
+                    if party.get("name"):
+                        trading_partner = party.get("name")
+                        break
+            # If still no trading partner, try sender/receiver IDs
+            if not trading_partner and documents[0].sender_id:
+                trading_partner = documents[0].sender_id
+        
         # Build response with mismatch detection info
         response_content = {
             "id": f"conv_{int(time.time() * 1000)}",
@@ -167,6 +186,8 @@ async def convert_edi_file(
             "detectedType": detected_type,
             "selectedType": transaction_type,
             "typeMismatch": type_mismatch,
+            # Trading partner info
+            "tradingPartner": trading_partner,
         }
         
         # Add warning if there was a mismatch
