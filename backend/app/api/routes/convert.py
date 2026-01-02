@@ -222,8 +222,7 @@ def generate_combined_html(documents: list, generator: HTMLGenerator) -> bytes:
     if not documents:
         return b""
         
-    if len(documents) == 1:
-        return generator.generate(documents[0])
+    # Always use this premium generator, even for single documents
     
     # Get dynamic names from first document
     trans_name = documents[0].transaction_name
@@ -289,7 +288,7 @@ def generate_combined_html(documents: list, generator: HTMLGenerator) -> bytes:
 <body>
 <div class="main-container">
     <div class="nav-card">
-        <h1>📦 {len(documents)} {trans_name}s Found</h1>
+        <h1>📦 {len(documents)} {trans_name}{'s' if len(documents) != 1 else ''} Found</h1>
         <div class="nav-links">
 """]
     
@@ -498,6 +497,10 @@ def build_terms_section(doc) -> str:
 
 def build_line_items_section(doc) -> str:
     """Build line items table HTML section with detailed product info."""
+    # Special handling for 812
+    if doc.transaction_type == "812":
+        return build_812_line_items_section(doc)
+        
     if not doc.line_items:
         return ""
     
@@ -584,6 +587,120 @@ def build_line_items_section(doc) -> str:
                                 <th style="width: 60px;">Unit</th>
                                 <th style="width: 100px;">Unit Price</th>
                                 <th style="width: 100px;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>{"".join(rows)}</tbody>
+                    </table>
+                </div>
+            </div>
+"""
+
+
+def build_812_line_items_section(doc) -> str:
+    """Build 812 specific Credit/Debit Adjustment Detail table."""
+    if not doc.line_items:
+        return ""
+        
+    rows = []
+    for idx, item in enumerate(doc.line_items):
+        # Map 812 fields to table columns
+        
+        # Product -> Assigned ID + Adjustment Reason
+        assigned_id = item.get("assigned_id", "—")
+        reason = item.get("adjustment_reason", "")
+        flag = item.get("credit_debit_type", "")
+        
+        desc_parts = []
+        if reason:
+            desc_parts.append(f"Reason: {reason}")
+        if flag:
+            desc_parts.append(f"Type: {flag}")
+            
+        desc_html = f'<div class="item-desc">{" / ".join(desc_parts)}</div>' if desc_parts else ""
+        
+        # Unit Price
+        unit_price = item.get("unit_price", "—")
+        try:
+            unit_price = f"${float(unit_price):,.2f}"
+            price_id = item.get("price_id_desc")
+            if price_id:
+                unit_price += f" <span style='font-size:10px;color:#64748b'>({price_id})</span>"
+        except:
+            pass
+            
+        # Total -> Adjustment Amount
+        total = item.get("adjustment_amount", "")
+        if total:
+            try:
+                total = f"${float(total):,.2f}"
+            except:
+                pass
+        else:
+            total = "—"
+            
+        # Part numbers details
+        part_numbers = item.get("part_numbers", {})
+        details_html = ""
+        if part_numbers:
+            detail_items = []
+            for id_type, id_value in part_numbers.items():
+                detail_items.append(f'<span class="id-item"><span class="id-type">{id_type}:</span> {id_value}</span>')
+            
+            if detail_items:
+                details_html = f'''
+                        <div class="item-details">
+                            <div class="details-toggle" onclick="this.parentElement.classList.toggle('expanded')">
+                                ▶ Part Numbers ({len(detail_items)})
+                            </div>
+                            <div class="details-content">
+                                {"".join(detail_items)}
+                            </div>
+                        </div>'''
+
+        rows.append(f'''
+                        <tr>
+                            <td>{item.get("line_number", idx + 1)}</td>
+                            <td>
+                                <strong>{assigned_id}</strong>
+                                {desc_html}
+                                {details_html}
+                            </td>
+                            <td>{item.get("quantity", "—")}</td>
+                            <td>{item.get("unit", "—")}</td>
+                            <td>{unit_price}</td>
+                            <td>{total}</td>
+                        </tr>''')
+    
+    # Re-use details CSS
+    details_css = '''
+        <style>
+            .item-details { margin-top: 8px; font-size: 12px; }
+            .details-toggle { cursor: pointer; color: #3b82f6; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #f0f9ff; border-radius: 4px; transition: all 0.2s; }
+            .details-toggle:hover { background: #dbeafe; }
+            .item-details.expanded .details-toggle { color: #1e40af; }
+            .item-details.expanded .details-toggle::before { content: "▼"; margin-right: 4px; }
+            .details-content { display: none; margin-top: 8px; padding: 12px; background: #f8fafc; border-radius: 8px; border-left: 3px solid #3b82f6; }
+            .item-details.expanded .details-content { display: block; }
+            .id-item { display: block; padding: 4px 0; border-bottom: 1px solid #e2e8f0; }
+            .id-item:last-child { border-bottom: none; }
+            .id-type { font-weight: 600; color: #64748b; min-width: 140px; display: inline-block; }
+        </style>
+    '''
+    
+    return f"""
+            {details_css}
+            <div class="section">
+                <div class="section-title">Adjustment Details ({len(doc.line_items)} items)</div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">Line</th>
+                                <th>Item / Reason</th>
+                                <th style="width: 80px;">Qty</th>
+                                <th style="width: 60px;">Unit</th>
+                                <th style="width: 120px;">Unit Price</th>
+                                <th style="width: 100px;">Amount</th>
                             </tr>
                         </thead>
                         <tbody>{"".join(rows)}</tbody>
