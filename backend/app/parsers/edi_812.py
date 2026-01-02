@@ -155,9 +155,24 @@ class EDI812Parser(BaseEDIParser):
             if len(elements) > 9 and elements[9]:
                 document.header["po_number"] = elements[9]
             
+
             # BCD10 - Transaction Set Purpose Code
             if len(elements) > 10 and elements[10]:
-                document.header["purpose_code"] = elements[10]
+                p_code = elements[10]
+                # Purpose code mapping
+                purpose_map = {
+                    "00": "Original",
+                    "01": "Cancellation", 
+                    "02": "Add",
+                    "03": "Delete",
+                    "04": "Change", 
+                    "05": "Replace",
+                    "06": "Confirmation",
+                    "07": "Duplicate",
+                    "15": "Re-Submission"
+                }
+                document.header["purpose_code"] = p_code
+                document.header["purpose"] = purpose_map.get(p_code, p_code)
             
             # BCD11 - Transaction Type Code
             if len(elements) > 11 and elements[11]:

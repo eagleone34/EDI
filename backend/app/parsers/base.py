@@ -204,7 +204,13 @@ class BaseEDIParser(ABC):
     
     def _split_segments(self, content: str) -> list:
         """Split content into segments."""
-        # Clean up content
+        # Handle cases where newline is the terminator
+        if self.segment_terminator in ["\n", "\r", "\r\n"]:
+            segments = content.split(self.segment_terminator)
+            # Remove empty strings from split
+            return [s.strip() for s in segments if s.strip()]
+            
+        # Standard case: content might have formatting newlines to remove
         content = content.replace("\r\n", "").replace("\n", "").replace("\r", "")
         
         # Split by segment terminator

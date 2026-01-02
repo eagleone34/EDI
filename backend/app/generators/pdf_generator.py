@@ -484,15 +484,26 @@ class PDFGenerator:
             ("Flag Code", h.get("credit_debit_flag_desc")),
             ("Invoice #", h.get("invoice_number")),
             ("PO Number", h.get("po_number")),
-            ("Purpose", h.get("purpose_code")),
+            ("Purpose", h.get("purpose")),  # Use mapped description
             ("Type", h.get("transaction_type_desc")),
             ("Currency", h.get("currency"))
         ]
         
+        # Style for header cells
+        header_text_style = ParagraphStyle(
+            'HeaderCell',
+            parent=self.styles['Normal'],
+            fontSize=10,
+            textColor=colors.HexColor('#1e40af'),
+            leading=12
+        )
+
         row_buffer = []
         for label, val in fields:
             if val:
-                row_buffer.append(f"{label}: {val}")
+                # Use Paragraph to ensure wrapping
+                text = f"<b>{label}:</b> {val}"
+                row_buffer.append(Paragraph(text, header_text_style))
                 if len(row_buffer) == 2:
                     data.append(row_buffer)
                     row_buffer = []

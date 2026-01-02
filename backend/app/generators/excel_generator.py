@@ -364,7 +364,7 @@ class ExcelGenerator:
             ("Flag Code", document.header.get("credit_debit_flag_desc", "—")),
             ("Invoice #", document.header.get("invoice_number", "—")),
             ("PO Number", document.header.get("po_number", "—")),
-            ("Purpose", document.header.get("purpose_code", "—")),
+            ("Purpose", document.header.get("purpose", "—")),
             ("Type", document.header.get("transaction_type_desc", "—")),
             ("Currency", document.header.get("currency", "—")),
         ]
