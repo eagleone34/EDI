@@ -165,18 +165,31 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
             onConversionComplete?.(apiResult);
 
             // Save document to Supabase for authenticated users
+            console.log("🔍 Save to DB check:", { isAuthenticated, userId: user?.id, hasFile: !!file });
+
             if (isAuthenticated && user?.id) {
                 try {
-                    await supabase.from("documents").insert({
+                    const docData = {
                         user_id: user.id,
                         filename: file.name,
                         transaction_type: apiResult.transactionType,
                         transaction_name: apiResult.transactionName,
                         transaction_count: apiResult.transactionCount || 1,
-                    });
+                    };
+                    console.log("📝 Saving document:", docData);
+
+                    const { data, error } = await supabase.from("documents").insert(docData).select();
+
+                    if (error) {
+                        console.error("❌ Supabase insert error:", error);
+                    } else {
+                        console.log("✅ Document saved successfully:", data);
+                    }
                 } catch (err) {
-                    console.error("Failed to save document to database:", err);
+                    console.error("❌ Failed to save document to database:", err);
                 }
+            } else {
+                console.log("⚠️ Skipping save - not authenticated or no user ID");
             }
 
         } catch (err) {
