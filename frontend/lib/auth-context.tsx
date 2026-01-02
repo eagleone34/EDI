@@ -2,52 +2,152 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { User, Session } from "@supabase/supabase-js";
 
-interface User {
+// Lazy import supabase to avoid SSR issues
+let supabaseClient: ReturnType<typeof import("@supabase/supabase-js").createClient> | null = null;
+
+function getSupabase() {
+    if (typeof window === "undefined") return null;
+    if (supabaseClient) return supabaseClient;
+
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !key) {
+        console.warn("Supabase env vars not set");
+        return null;
+    }
+
+    const { createClient } = require("@supabase/supabase-js");
+    supabaseClient = createClient(url, key);
+    return supabaseClient;
+}
+
+interface AuthUser {
+    id: string;
     email: string;
-    token: string;
-    userId: string;
+    firstName?: string;
+    lastName?: string;
 }
 
 interface AuthContextType {
-    user: User | null;
+    user: AuthUser | null;
+    session: Session | null;
     isLoading: boolean;
-    login: (email: string, token: string, userId: string) => void;
-    logout: () => void;
     isAuthenticated: boolean;
+    signInWithOtp: (email: string) => Promise<{ error: Error | null }>;
+    verifyOtp: (email: string, token: string) => Promise<{ error: Error | null; user: User | null }>;
+    logout: () => Promise<void>;
+    updateProfile: (firstName: string, lastName: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
+    const [user, setUser] = useState<AuthUser | null>(null);
+    const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
     // Check for existing session on mount
     useEffect(() => {
-        const email = localStorage.getItem("user_email");
-        const token = localStorage.getItem("user_token");
-        const userId = localStorage.getItem("user_id");
-
-        if (email && token && userId) {
-            setUser({ email, token, userId });
+        const supabase = getSupabase();
+        if (!supabase) {
+            setIsLoading(false);
+            return;
         }
-        setIsLoading(false);
+
+        // Get initial session
+        supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
+            if (session?.user) {
+                setSession(session);
+                setUser({
+                    id: session.user.id,
+                    email: session.user.email || "",
+                    firstName: session.user.user_metadata?.first_name,
+                    lastName: session.user.user_metadata?.last_name,
+                });
+            }
+            setIsLoading(false);
+        });
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            (_event: string, session: Session | null) => {
+                if (session?.user) {
+                    setSession(session);
+                    setUser({
+                        id: session.user.id,
+                        email: session.user.email || "",
+                        firstName: session.user.user_metadata?.first_name,
+                        lastName: session.user.user_metadata?.last_name,
+                    });
+                } else {
+                    setSession(null);
+                    setUser(null);
+                }
+            }
+        );
+
+        return () => subscription.unsubscribe();
     }, []);
 
-    const login = (email: string, token: string, userId: string) => {
-        localStorage.setItem("user_email", email);
-        localStorage.setItem("user_token", token);
-        localStorage.setItem("user_id", userId);
-        setUser({ email, token, userId });
+    const signInWithOtp = async (email: string): Promise<{ error: Error | null }> => {
+        const supabase = getSupabase();
+        if (!supabase) return { error: new Error("Supabase not initialized") };
+
+        const { error } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+                shouldCreateUser: true,
+            },
+        });
+
+        return { error };
     };
 
-    const logout = () => {
-        localStorage.removeItem("user_email");
-        localStorage.removeItem("user_token");
-        localStorage.removeItem("user_id");
+    const verifyOtp = async (email: string, token: string): Promise<{ error: Error | null; user: User | null }> => {
+        const supabase = getSupabase();
+        if (!supabase) return { error: new Error("Supabase not initialized"), user: null };
+
+        const { data, error } = await supabase.auth.verifyOtp({
+            email,
+            token,
+            type: "email",
+        });
+
+        if (data?.user) {
+            setUser({
+                id: data.user.id,
+                email: data.user.email || "",
+                firstName: data.user.user_metadata?.first_name,
+                lastName: data.user.user_metadata?.last_name,
+            });
+            setSession(data.session);
+        }
+
+        return { error, user: data?.user || null };
+    };
+
+    const updateProfile = (firstName: string, lastName: string) => {
+        const supabase = getSupabase();
+        if (!supabase || !user) return;
+
+        supabase.auth.updateUser({
+            data: { first_name: firstName, last_name: lastName }
+        });
+
+        setUser(prev => prev ? { ...prev, firstName, lastName } : null);
+    };
+
+    const logout = async () => {
+        const supabase = getSupabase();
+        if (supabase) {
+            await supabase.auth.signOut();
+        }
         setUser(null);
+        setSession(null);
         router.push("/");
     };
 
@@ -55,10 +155,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         <AuthContext.Provider
             value={{
                 user,
+                session,
                 isLoading,
-                login,
-                logout,
                 isAuthenticated: !!user,
+                signInWithOtp,
+                verifyOtp,
+                logout,
+                updateProfile,
             }}
         >
             {children}

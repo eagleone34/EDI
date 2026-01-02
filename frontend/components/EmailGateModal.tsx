@@ -8,13 +8,13 @@ import { useAuth } from "@/lib/auth-context";
 interface EmailGateModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onVerified: (userData: { email: string; token: string; userId: string; firstName: string; lastName: string }) => void;
+    onVerified: (userData: { email: string; userId: string; firstName: string; lastName: string }) => void;
     pendingDownload?: () => void;
 }
 
 export function EmailGateModal({ isOpen, onClose, onVerified, pendingDownload }: EmailGateModalProps) {
     const router = useRouter();
-    const { login } = useAuth();
+    const { signInWithOtp, verifyOtp, updateProfile } = useAuth();
     const [step, setStep] = useState<"info" | "code">("info");
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
@@ -22,7 +22,6 @@ export function EmailGateModal({ isOpen, onClose, onVerified, pendingDownload }:
     const [code, setCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const [devCode, setDevCode] = useState<string | null>(null);
 
     const handleSendCode = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,30 +29,15 @@ export function EmailGateModal({ isOpen, onClose, onVerified, pendingDownload }:
         setError("");
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://edi-production.up.railway.app'}/api/v1/auth/send-code`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email,
-                    first_name: firstName,
-                    last_name: lastName,
-                }),
-            });
+            const { error: authError } = await signInWithOtp(email);
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.detail || "Failed to send code");
-            }
-
-            // In dev mode, show the code
-            if (data.dev_code) {
-                setDevCode(data.dev_code);
+            if (authError) {
+                throw authError;
             }
 
             setStep("code");
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Something went wrong");
+            setError(err instanceof Error ? err.message : "Failed to send verification code");
         } finally {
             setLoading(false);
         }
@@ -65,20 +49,18 @@ export function EmailGateModal({ isOpen, onClose, onVerified, pendingDownload }:
         setError("");
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://edi-production.up.railway.app'}/api/v1/auth/verify-code`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, code }),
-            });
+            const { error: authError, user } = await verifyOtp(email, code);
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.detail || "Invalid code");
+            if (authError) {
+                throw authError;
             }
 
-            // Login the user via auth context
-            login(email, data.token, data.user_id);
+            if (!user) {
+                throw new Error("Verification failed - no user returned");
+            }
+
+            // Update profile with name
+            updateProfile(firstName, lastName);
 
             // Trigger pending download if any
             if (pendingDownload) {
@@ -88,8 +70,7 @@ export function EmailGateModal({ isOpen, onClose, onVerified, pendingDownload }:
             // Call parent callback with user data
             onVerified({
                 email,
-                token: data.token,
-                userId: data.user_id,
+                userId: user.id,
                 firstName,
                 lastName,
             });
@@ -97,7 +78,7 @@ export function EmailGateModal({ isOpen, onClose, onVerified, pendingDownload }:
             // Redirect to dashboard
             router.push("/dashboard");
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Invalid code");
+            setError(err instanceof Error ? err.message : "Invalid verification code");
         } finally {
             setLoading(false);
         }
@@ -107,7 +88,6 @@ export function EmailGateModal({ isOpen, onClose, onVerified, pendingDownload }:
         setStep("info");
         setCode("");
         setError("");
-        setDevCode(null);
     };
 
     const handleClose = () => {
@@ -117,7 +97,6 @@ export function EmailGateModal({ isOpen, onClose, onVerified, pendingDownload }:
         setEmail("");
         setCode("");
         setError("");
-        setDevCode(null);
         onClose();
     };
 
@@ -253,13 +232,6 @@ export function EmailGateModal({ isOpen, onClose, onVerified, pendingDownload }:
                                 <span className="font-medium text-slate-900">{email}</span>
                             </p>
                         </div>
-
-                        {devCode && (
-                            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-                                <p className="text-xs text-yellow-600 mb-1">Development mode</p>
-                                <p className="text-lg font-mono font-bold text-yellow-700">{devCode}</p>
-                            </div>
-                        )}
 
                         <form onSubmit={handleVerifyCode} className="space-y-4">
                             <div>

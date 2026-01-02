@@ -19,7 +19,7 @@ export default function TransactionsTable() {
 
     useEffect(() => {
         const fetchDocuments = async () => {
-            if (!user?.userId) {
+            if (!user?.id) {
                 setLoading(false);
                 return;
             }
@@ -28,7 +28,7 @@ export default function TransactionsTable() {
                 const { data, error } = await supabase
                     .from("documents")
                     .select("*")
-                    .eq("user_id", user.userId)
+                    .eq("user_id", user.id)
                     .order("created_at", { ascending: false });
 
                 if (error) {
@@ -44,7 +44,7 @@ export default function TransactionsTable() {
         };
 
         fetchDocuments();
-    }, [user?.userId]);
+    }, [user?.id]);
 
     // Filter and sort documents
     const filteredAndSortedDocuments = useMemo(() => {

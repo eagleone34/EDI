@@ -42,9 +42,10 @@ export default function DashboardLayout({
         return null;
     }
 
-    // Get user display name from email
-    const displayName = user?.email?.split("@")[0] || "User";
-    const initials = displayName.slice(0, 2).toUpperCase();
+    // Get user display name - prefer firstName, fallback to email
+    const displayName = user?.firstName || user?.email?.split("@")[0] || "User";
+    const initials = (user?.firstName?.[0] || "") + (user?.lastName?.[0] || displayName[0] || "U");
+    const upperInitials = initials.toUpperCase();
 
     return (
         <div className="min-h-screen bg-slate-50 flex">
@@ -84,7 +85,7 @@ export default function DashboardLayout({
                 <div className="p-4 border-t border-slate-100">
                     <div className="flex items-center gap-3 px-4 py-3 mb-2">
                         <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
-                            {initials}
+                            {upperInitials}
                         </div>
                         <div className="flex-1 overflow-hidden">
                             <p className="text-sm font-medium text-slate-900 truncate">{displayName}</p>

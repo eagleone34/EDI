@@ -8,13 +8,18 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function LoginPage() {
     const router = useRouter();
-    const { login } = useAuth();
+    const { signInWithOtp, verifyOtp, isAuthenticated } = useAuth();
     const [step, setStep] = useState<"email" | "code">("email");
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const [devCode, setDevCode] = useState<string | null>(null);
+
+    // Redirect if already authenticated
+    if (isAuthenticated) {
+        router.push("/dashboard");
+        return null;
+    }
 
     const handleSendCode = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,27 +27,15 @@ export default function LoginPage() {
         setError("");
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://edi-production.up.railway.app';
-            const response = await fetch(`${apiUrl}/api/v1/auth/send-code`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email }),
-            });
+            const { error: authError } = await signInWithOtp(email);
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.detail || "Failed to send code");
-            }
-
-            // In dev mode, show the code
-            if (data.dev_code) {
-                setDevCode(data.dev_code);
+            if (authError) {
+                throw authError;
             }
 
             setStep("code");
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Something went wrong");
+            setError(err instanceof Error ? err.message : "Failed to send verification code");
         } finally {
             setLoading(false);
         }
@@ -54,26 +47,20 @@ export default function LoginPage() {
         setError("");
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://edi-production.up.railway.app';
-            const response = await fetch(`${apiUrl}/api/v1/auth/verify-code`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, code }),
-            });
+            const { error: authError, user } = await verifyOtp(email, code);
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.detail || "Invalid code");
+            if (authError) {
+                throw authError;
             }
 
-            // Use auth context login function
-            login(email, data.token, data.user_id);
+            if (!user) {
+                throw new Error("Verification failed");
+            }
 
             // Redirect to dashboard
             router.push("/dashboard");
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Invalid code");
+            setError(err instanceof Error ? err.message : "Invalid verification code");
         } finally {
             setLoading(false);
         }
@@ -83,7 +70,6 @@ export default function LoginPage() {
         setStep("email");
         setCode("");
         setError("");
-        setDevCode(null);
     };
 
     return (
@@ -193,13 +179,6 @@ export default function LoginPage() {
                                     <span className="font-medium text-slate-900">{email}</span>
                                 </p>
                             </div>
-
-                            {devCode && (
-                                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-                                    <p className="text-xs text-yellow-600 mb-1">Development mode</p>
-                                    <p className="text-lg font-mono font-bold text-yellow-700">{devCode}</p>
-                                </div>
-                            )}
 
                             <form onSubmit={handleVerifyCode} className="space-y-4">
                                 <div>
