@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { Plus, Trash2, Mail, AlertCircle, Check, Loader2, Edit2, Pencil, History } from "lucide-react";
+import { Plus, Trash2, Mail, AlertCircle, Check, Loader2, Edit2, Pencil, History, Send } from "lucide-react";
 import EmailInput from "@/components/ui/EmailInput";
 import EmailHistoryModal from "./EmailHistoryModal";
 
@@ -186,6 +186,36 @@ export default function EmailRoutesSettings() {
         setNewEmails([]);
         setShowForm(false);
         setError(null);
+    };
+
+    const handleTestRoute = async (route: EmailRoute) => {
+        if (!confirm(`Send a test email to ${route.email_addresses.join(", ")}?`)) return;
+
+        try {
+            const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://edi-production-d983.up.railway.app";
+            const response = await fetch(`${API_BASE}/api/v1/email/send`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    to_emails: route.email_addresses,
+                    filename: "TEST_DOCUMENT.txt",
+                    transaction_type: route.transaction_type,
+                    transaction_name: TYPE_NAMES[route.transaction_type] || "Test Transaction",
+                    trading_partner: "TEST PARTNER",
+                    // No PDF for simple test
+                }),
+            });
+
+            if (response.ok) {
+                setSuccess("Test email sent successfully!");
+                setTimeout(() => setSuccess(null), 3000);
+            } else {
+                throw new Error("Failed to send test email");
+            }
+        } catch (err) {
+            console.error("Test email failed:", err);
+            setError("Failed to send test email");
+        }
     };
 
     const handleDeleteRoute = async (id: string) => {
@@ -377,6 +407,13 @@ export default function EmailRoutesSettings() {
                                         }`}
                                 >
                                     {route.is_active ? "Pause" : "Resume"}
+                                </button>
+                                <button
+                                    onClick={() => handleTestRoute(route)}
+                                    className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+                                    title="Send Test Email"
+                                >
+                                    <Send className="w-4 h-4" />
                                 </button>
                                 <button
                                     onClick={() => handleViewHistory(route.id)}

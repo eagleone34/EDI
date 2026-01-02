@@ -52,6 +52,7 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
     const [result, setResult] = useState<ConversionResult | null>(null);
     const [isVerified, setIsVerified] = useState(false);
     const [showEmailModal, setShowEmailModal] = useState(false);
+    const [autoEmailStatus, setAutoEmailStatus] = useState<"sending" | "sent" | "error" | null>(null);
     const [pendingDownload, setPendingDownload] = useState<{ url: string; filename: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -213,12 +214,27 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                                         excel_base64: getBase64(apiResult.downloads.excel),
                                     }),
                                 })
-                                    .then(res => res.json())
-                                    .then(res => console.log("📧 Auto-send result:", res))
-                                    .catch(err => console.error("📧 Auto-send trigger failed:", err));
+                                    .then(async res => {
+                                        const json = await res.json();
+                                        console.log("📧 Auto-send result:", json);
+                                        if (json.status === "sent") {
+                                            setAutoEmailStatus("sent");
+                                        } else if (json.status === "error") {
+                                            console.error("Auto-send error:", json.message);
+                                            setAutoEmailStatus("error");
+                                        } else {
+                                            // skipped or no_routes
+                                            setAutoEmailStatus(null);
+                                        }
+                                    })
+                                    .catch(err => {
+                                        console.error("📧 Auto-send trigger failed:", err);
+                                        setAutoEmailStatus("error");
+                                    });
 
                             } catch (e) {
                                 console.error("Error preparing auto-email:", e);
+                                setAutoEmailStatus("error");
                             }
                         }
                     }
@@ -437,6 +453,19 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                                 </button>
                             )}
                         </div>
+
+                        {/* Auto-Email Status */}
+                        {autoEmailStatus && (
+                            <div className={`mb-6 p-3 rounded-lg flex items-center justify-center gap-2 text-sm font-medium ${autoEmailStatus === 'sent' ? 'bg-green-100 text-green-700' :
+                                autoEmailStatus === 'error' ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-600'
+                                }`}>
+                                {autoEmailStatus === 'sending' && <Loader2 className="w-4 h-4 animate-spin" />}
+                                {autoEmailStatus === 'sent' && <CheckCircle className="w-4 h-4" />}
+                                {autoEmailStatus === 'error' && <AlertCircle className="w-4 h-4" />}
+                                {autoEmailStatus === 'sending' ? 'Sending auto-email...' :
+                                    autoEmailStatus === 'sent' ? 'Auto-email sent successfully!' : 'Failed to send auto-email.'}
+                            </div>
+                        )}
 
                         <div className="flex items-center justify-center gap-4">
                             <button
