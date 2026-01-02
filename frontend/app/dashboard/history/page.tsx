@@ -266,30 +266,30 @@ export default function HistoryPage() {
                             <thead className="bg-slate-50 border-b border-slate-100">
                                 <tr>
                                     <th
-                                        className="text-left px-6 py-4 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900"
+                                        className="text-left px-6 py-4 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[35%] min-w-[250px]"
                                         onClick={() => handleSort("filename")}
                                     >
                                         File <SortIcon field="filename" />
                                     </th>
                                     <th
-                                        className="text-left px-6 py-4 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900"
+                                        className="text-left px-4 py-4 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[12%] min-w-[90px]"
                                         onClick={() => handleSort("transaction_type")}
                                     >
                                         Type <SortIcon field="transaction_type" />
                                     </th>
                                     <th
-                                        className="text-left px-6 py-4 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900"
+                                        className="text-left px-4 py-4 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[20%] min-w-[120px]"
                                         onClick={() => handleSort("trading_partner")}
                                     >
                                         Customer <SortIcon field="trading_partner" />
                                     </th>
                                     <th
-                                        className="text-left px-6 py-4 text-sm font-semibold text-slate-600 hidden sm:table-cell cursor-pointer hover:text-slate-900"
+                                        className="text-left px-4 py-4 text-sm font-semibold text-slate-600 hidden md:table-cell cursor-pointer hover:text-slate-900 w-[18%] min-w-[120px]"
                                         onClick={() => handleSort("created_at")}
                                     >
                                         Date <SortIcon field="created_at" />
                                     </th>
-                                    <th className="text-right px-6 py-4 text-sm font-semibold text-slate-600">Actions</th>
+                                    <th className="text-center px-4 py-4 text-sm font-semibold text-slate-600 w-[15%] min-w-[80px]">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -297,33 +297,33 @@ export default function HistoryPage() {
                                     <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                    <FileText className="w-5 h-5 text-slate-500" />
+                                                <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                    <FileText className="w-4 h-4 text-slate-500" />
                                                 </div>
-                                                <div>
-                                                    <span className="font-medium text-slate-900 truncate max-w-[200px] block">
+                                                <div className="min-w-0">
+                                                    <p className="font-medium text-slate-900 truncate text-sm" title={doc.filename}>
                                                         {doc.filename}
-                                                    </span>
-                                                    <span className="text-xs text-slate-400">{doc.transaction_name}</span>
+                                                    </p>
+                                                    <p className="text-xs text-slate-400 truncate">{doc.transaction_name}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-primary-50 text-primary-700">
+                                        <td className="px-4 py-4">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary-50 text-primary-700 whitespace-nowrap">
                                                 EDI {doc.transaction_type}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-600">
+                                        <td className="px-4 py-4 text-sm text-slate-600 truncate max-w-[150px]">
                                             {doc.trading_partner || <span className="text-slate-400">—</span>}
                                         </td>
-                                        <td className="px-6 py-4 text-slate-500 hidden sm:table-cell">
-                                            <div className="flex items-center gap-2">
-                                                <Calendar className="w-4 h-4" />
+                                        <td className="px-4 py-4 text-slate-500 hidden md:table-cell">
+                                            <div className="flex items-center gap-1.5 text-sm whitespace-nowrap">
+                                                <Calendar className="w-3.5 h-3.5" />
                                                 {formatDate(doc.created_at)}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center justify-end">
+                                        <td className="px-4 py-4">
+                                            <div className="flex items-center justify-center">
                                                 <div className="relative">
                                                     <button
                                                         onClick={(e) => {
