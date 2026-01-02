@@ -5,6 +5,7 @@ Email service using Resend for verification codes.
 import os
 import random
 import string
+import base64
 from typing import Optional
 from datetime import datetime
 from app.core.config import settings
@@ -268,16 +269,26 @@ class EmailService:
         base_filename = filename.rsplit(".", 1)[0] if "." in filename else filename
         
         if pdf_base64:
-            attachments.append({
-                "filename": f"{base_filename}.pdf",
-                "content": pdf_base64,
-            })
+            try:
+                # Decode base64 to bytes list for Resend
+                pdf_bytes = list(base64.b64decode(pdf_base64))
+                attachments.append({
+                    "filename": f"{base_filename}.pdf",
+                    "content": pdf_bytes,
+                })
+            except Exception as e:
+                print(f"Error decoding PDF attachment: {e}")
         
         if excel_base64:
-            attachments.append({
-                "filename": f"{base_filename}.xlsx", 
-                "content": excel_base64,
-            })
+            try:
+                # Decode base64 to bytes list for Resend
+                excel_bytes = list(base64.b64decode(excel_base64))
+                attachments.append({
+                    "filename": f"{base_filename}.xlsx", 
+                    "content": excel_bytes,
+                })
+            except Exception as e:
+                print(f"Error decoding Excel attachment: {e}")
         
         try:
             send_params = {
