@@ -115,27 +115,52 @@ class PDFGenerator:
         """Build summary page content for multiple documents."""
         elements = []
         
+        # Use the transaction info from first document
+        doc_type = documents[0].transaction_type if documents else "850"
+        doc_name = documents[0].transaction_name if documents else "Purchase Order"
+        
         # Title
         elements.append(Paragraph(
-            f"📦 {len(documents)} Purchase Orders",
+            f"📦 {len(documents)} {doc_name}s",
             self.styles['DocTitle']
         ))
         elements.append(Paragraph(
-            "EDI 850 Conversion Summary",
+            f"EDI {doc_type} Conversion Summary",
             self.styles['Normal']
         ))
         elements.append(Spacer(1, 30))
         
-        # Summary table
-        data = [['PO Number', 'PO Date', 'Line Items', 'Total Amount']]
+        # Summary table with document-type specific headers
+        if doc_type == "810":
+            headers = ['Invoice #', 'Invoice Date', 'Line Items', 'Total Amount']
+        elif doc_type == "812":
+            headers = ['Memo #', 'Date', 'Adjustments', 'Total Amount']
+        elif doc_type == "856":
+            headers = ['Shipment ID', 'Ship Date', 'Items', 'Weight']
+        else:
+            headers = ['PO Number', 'PO Date', 'Line Items', 'Total Amount']
+        
+        data = [headers]
         
         for doc in documents:
-            po_num = doc.header.get("po_number", "—")
-            po_date = doc.header.get("po_date", "—")
+            # Get appropriate identifier and date based on doc type
+            if doc_type == "810":
+                id_val = doc.header.get("invoice_number", doc.header.get("po_number", "—"))
+                date_val = doc.header.get("invoice_date", doc.header.get("po_date", "—"))
+            elif doc_type == "812":
+                id_val = doc.header.get("credit_debit_number", doc.header.get("po_number", "—"))
+                date_val = doc.header.get("adjustment_date", doc.header.get("po_date", "—"))
+            elif doc_type == "856":
+                id_val = doc.header.get("shipment_id", doc.header.get("po_number", "—"))
+                date_val = doc.header.get("ship_date", doc.header.get("po_date", "—"))
+            else:
+                id_val = doc.header.get("po_number", "—")
+                date_val = doc.header.get("po_date", "—")
+            
             line_count = str(len(doc.line_items))
             total = doc.summary.get("total_amount") or doc.summary.get("calculated_total")
             total_str = f"${total:,.2f}" if isinstance(total, (int, float)) else "—"
-            data.append([po_num, po_date, line_count, total_str])
+            data.append([id_val, date_val, line_count, total_str])
         
         table = Table(data, colWidths=[2*inch, 1.5*inch, 1*inch, 1.5*inch])
         table.setStyle(TableStyle([
@@ -163,18 +188,44 @@ class PDFGenerator:
         """Build content for a single document."""
         elements = []
         
-        # Header
-        po_num = document.header.get("po_number", "—")
-        if total > 1:
-            title_text = f"Purchase Order {idx} of {total} — PO #{po_num}"
+        # Get document type info
+        doc_name = document.transaction_name or "Document"
+        doc_type = document.transaction_type or "850"
+        
+        # Get primary identifier based on document type
+        if doc_type == "810":
+            primary_id = document.header.get("invoice_number", document.header.get("po_number", "—"))
+            id_label = "Invoice"
+        elif doc_type == "812":
+            primary_id = document.header.get("credit_debit_number", document.header.get("po_number", "—"))
+            id_label = "Memo"
+        elif doc_type == "856":
+            primary_id = document.header.get("shipment_id", document.header.get("po_number", "—"))
+            id_label = "Shipment"
         else:
-            title_text = f"Purchase Order — PO #{po_num}"
+            primary_id = document.header.get("po_number", "—")
+            id_label = "PO"
+        
+        # Header
+        if total > 1:
+            title_text = f"{doc_name} {idx} of {total} — {id_label} #{primary_id}"
+        else:
+            title_text = f"{doc_name} — {id_label} #{primary_id}"
         
         elements.append(Paragraph(title_text, self.styles['DocTitle']))
         elements.append(Spacer(1, 10))
         
-        # Order Information section
-        elements.append(Paragraph("Order Information", self.styles['SectionTitle']))
+        # Section title based on document type
+        if doc_type == "810":
+            section_title = "Invoice Information"
+        elif doc_type == "812":
+            section_title = "Adjustment Information"
+        elif doc_type == "856":
+            section_title = "Shipment Information"
+        else:
+            section_title = "Order Information"
+        
+        elements.append(Paragraph(section_title, self.styles['SectionTitle']))
         elements.extend(self._build_order_info(document))
         
         # Parties section
