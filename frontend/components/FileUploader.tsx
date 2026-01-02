@@ -393,15 +393,19 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                         setIsVerified(true);
                         setShowEmailModal(false);
 
+                        // Capture result for TypeScript (result is guaranteed non-null here)
+                        const currentResult = result;
+                        const currentFile = file;
+
                         // Save document to Supabase
-                        if (result && userData.userId) {
+                        if (currentResult && userData.userId) {
                             try {
                                 await supabase.from("documents").insert({
                                     user_id: userData.userId,
-                                    filename: file?.name || "unknown.edi",
-                                    transaction_type: result.transactionType,
-                                    transaction_name: result.transactionName,
-                                    transaction_count: result.transactionCount || 1,
+                                    filename: currentFile?.name || "unknown.edi",
+                                    transaction_type: currentResult.transactionType,
+                                    transaction_name: currentResult.transactionName,
+                                    transaction_count: currentResult.transactionCount || 1,
                                 });
                             } catch (err) {
                                 console.error("Failed to save document:", err);
@@ -560,22 +564,8 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                     setIsVerified(true);
                     setShowEmailModal(false);
 
-                    // Save document to Supabase if we have a result
-                    if (result && userData.userId) {
-                        try {
-                            await supabase.from("documents").insert({
-                                user_id: userData.userId,
-                                filename: file?.name || "unknown.edi",
-                                transaction_type: result.transactionType,
-                                transaction_name: result.transactionName,
-                                transaction_count: result.transactionCount || 1,
-                            });
-                        } catch (err) {
-                            console.error("Failed to save document:", err);
-                        }
-                    }
-
                     // Process pending download
+                    // Note: No document saving here since result is null in this render path
                     if (pendingDownload) {
                         performDownload(pendingDownload.url, pendingDownload.filename);
                         setPendingDownload(null);
