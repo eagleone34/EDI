@@ -234,63 +234,66 @@ export default function TransactionsTable() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead>
-                            <tr className="bg-slate-50 text-slate-500 font-medium">
-                                <th className="px-6 py-4">Status</th>
-                                <th
-                                    className="px-6 py-4 cursor-pointer hover:text-slate-700 select-none"
-                                    onClick={() => handleSort("transaction_type")}
-                                >
-                                    Type <SortIcon field="transaction_type" />
-                                </th>
-                                <th
-                                    className="px-6 py-4 cursor-pointer hover:text-slate-700 select-none"
-                                    onClick={() => handleSort("trading_partner")}
-                                >
-                                    Customer <SortIcon field="trading_partner" />
-                                </th>
-                                <th
-                                    className="px-6 py-4 cursor-pointer hover:text-slate-700 select-none"
-                                    onClick={() => handleSort("filename")}
-                                >
-                                    Filename <SortIcon field="filename" />
-                                </th>
-                                <th
-                                    className="px-6 py-4 cursor-pointer hover:text-slate-700 select-none"
-                                    onClick={() => handleSort("created_at")}
-                                >
-                                    Date <SortIcon field="created_at" />
-                                </th>
-                                <th className="px-6 py-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {filteredAndSortedDocuments.map((doc) => (
-                                <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                                            Completed
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">
-                                            EDI {doc.transaction_type}
-                                        </span>
-                                        <span className="text-slate-400 text-xs ml-2">{doc.transaction_name}</span>
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-600">
+                <table className="w-full table-fixed text-left text-sm">
+                    <thead>
+                        <tr className="bg-slate-50 text-slate-500 font-medium">
+                            <th className="px-3 py-3 w-[10%]">Status</th>
+                            <th
+                                className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[12%]"
+                                onClick={() => handleSort("transaction_type")}
+                            >
+                                Type <SortIcon field="transaction_type" />
+                            </th>
+                            <th
+                                className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[18%]"
+                                onClick={() => handleSort("trading_partner")}
+                            >
+                                Customer <SortIcon field="trading_partner" />
+                            </th>
+                            <th
+                                className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[30%]"
+                                onClick={() => handleSort("filename")}
+                            >
+                                Filename <SortIcon field="filename" />
+                            </th>
+                            <th
+                                className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[18%]"
+                                onClick={() => handleSort("created_at")}
+                            >
+                                Date <SortIcon field="created_at" />
+                            </th>
+                            <th className="px-3 py-3 text-center w-[12%]">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {filteredAndSortedDocuments.map((doc) => (
+                            <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-3 py-3">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                        Done
+                                    </span>
+                                </td>
+                                <td className="px-3 py-3">
+                                    <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-bold">
+                                        {doc.transaction_type}
+                                    </span>
+                                </td>
+                                <td className="px-3 py-3 overflow-hidden">
+                                    <p className="text-slate-600 truncate">
                                         {doc.trading_partner || <span className="text-slate-400">—</span>}
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-600 font-medium max-w-xs truncate" title={doc.filename}>
+                                    </p>
+                                </td>
+                                <td className="px-3 py-3 overflow-hidden">
+                                    <p className="text-slate-600 font-medium truncate" title={doc.filename}>
                                         {doc.filename}
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-500">
-                                        {formatDate(doc.created_at)}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="relative inline-block">
+                                    </p>
+                                </td>
+                                <td className="px-3 py-3 text-slate-500">
+                                    {formatDate(doc.created_at)}
+                                </td>
+                                <td className="px-3 py-3">
+                                    <div className="flex justify-center">
+                                        <div className="relative">
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -328,30 +331,30 @@ export default function TransactionsTable() {
                                                 </div>
                                             )}
                                         </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
 
-                            {filteredAndSortedDocuments.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-16 text-center">
-                                        <div className="flex flex-col items-center gap-3">
-                                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
-                                                <FileText className="w-8 h-8 text-slate-400" />
-                                            </div>
-                                            <div>
-                                                <p className="text-slate-600 font-medium">No conversions yet</p>
-                                                <p className="text-slate-400 text-sm mt-1">
-                                                    Upload an EDI file above to get started
-                                                </p>
-                                            </div>
+                        {filteredAndSortedDocuments.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="px-6 py-16 text-center">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                                            <FileText className="w-8 h-8 text-slate-400" />
                                         </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                        <div>
+                                            <p className="text-slate-600 font-medium">No conversions yet</p>
+                                            <p className="text-slate-400 text-sm mt-1">
+                                                Upload an EDI file above to get started
+                                            </p>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
 
             {/* Email Modal */}
@@ -394,7 +397,8 @@ export default function TransactionsTable() {
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
         </>
     );
 }
