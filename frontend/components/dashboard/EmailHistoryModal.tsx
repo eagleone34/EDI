@@ -12,6 +12,7 @@ interface EmailLog {
     documents?: {
         filename: string;
         transaction_type: string;
+        transaction_name: string;
     };
 }
 
@@ -41,7 +42,8 @@ export default function EmailHistoryModal({ routeId, isOpen, onClose }: EmailHis
                     *,
                     documents (
                         filename,
-                        transaction_type
+                        transaction_type,
+                        transaction_name
                     )
                 `)
                 .eq("route_id", routeId)
@@ -74,10 +76,8 @@ export default function EmailHistoryModal({ routeId, isOpen, onClose }: EmailHis
                     to_emails: [log.recipient_email],
                     filename: log.documents.filename,
                     transaction_type: log.documents.transaction_type,
-                    // We don't have full doc details here easily without another fetch, 
-                    // but the backend mostly needs filename/type for the subject/body in the basic version.
-                    // If we want attachments, we need to pass base64 or have backend re-convert.
-                    // For now, consistent with manual send.
+                    transaction_name: log.documents.transaction_name || log.documents.transaction_type,
+                    document_id: log.document_id
                 }),
             });
 

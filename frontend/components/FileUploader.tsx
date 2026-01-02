@@ -181,6 +181,9 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                         transaction_name: apiResult.transactionName,
                         transaction_count: apiResult.transactionCount || 1,
                         trading_partner: apiResult.tradingPartner || null,
+                        pdf_url: apiResult.downloads.pdf,
+                        excel_url: apiResult.downloads.excel,
+                        html_url: apiResult.downloads.html,
                     };
                     console.log("📝 Saving document:", docData);
 
