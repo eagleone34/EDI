@@ -1,9 +1,44 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Lazy-loaded Supabase client (avoids issues during static build)
+let supabaseInstance: SupabaseClient | null = null;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+function getSupabaseClient(): SupabaseClient {
+    if (supabaseInstance) return supabaseInstance;
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+        // During static build, return a mock client that throws on use
+        console.warn('Supabase environment variables not available');
+        // Return a proxy that will throw meaningful errors
+        return new Proxy({} as SupabaseClient, {
+            get: () => () => {
+                throw new Error('Supabase client not initialized - missing env vars');
+            }
+        });
+    }
+
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+    return supabaseInstance;
+}
+
+// Export as getter to ensure lazy initialization
+export const supabase = typeof window !== 'undefined'
+    ? getSupabaseClient()
+    : new Proxy({} as SupabaseClient, {
+        get: (target, prop) => {
+            // During SSR/build, return functions that do nothing
+            if (prop === 'from') {
+                return () => ({
+                    select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }),
+                    insert: () => Promise.resolve({ data: null, error: null }),
+                });
+            }
+            return () => Promise.resolve({ data: null, error: null });
+        }
+    });
 
 // Types for our database
 export interface Document {
@@ -21,13 +56,17 @@ export interface Document {
 
 // Helper to check if user is authenticated
 export async function getUser() {
-    const { data: { user } } = await supabase.auth.getUser();
+    if (typeof window === 'undefined') return null;
+    const client = getSupabaseClient();
+    const { data: { user } } = await client.auth.getUser();
     return user;
 }
 
 // Helper to save a document
 export async function saveDocument(doc: Omit<Document, 'id' | 'created_at'>) {
-    const { data, error } = await supabase
+    if (typeof window === 'undefined') return null;
+    const client = getSupabaseClient();
+    const { data, error } = await client
         .from('documents')
         .insert(doc)
         .select()
@@ -39,7 +78,9 @@ export async function saveDocument(doc: Omit<Document, 'id' | 'created_at'>) {
 
 // Helper to get user's documents
 export async function getUserDocuments(userId: string) {
-    const { data, error } = await supabase
+    if (typeof window === 'undefined') return [];
+    const client = getSupabaseClient();
+    const { data, error } = await client
         .from('documents')
         .select('*')
         .eq('user_id', userId)
