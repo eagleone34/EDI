@@ -340,7 +340,12 @@ class HTMLGenerator:
         return html
     
     def _build_order_info(self, document: EDIDocument) -> str:
-        """Build order information section."""
+        """Build order information section - specialized for each document type."""
+        
+        # 812 Credit/Debit Adjustment has specialized layout
+        if document.transaction_type == "812":
+            return self._build_812_general_info(document)
+        
         rows = []
         
         # PO Number
@@ -383,6 +388,74 @@ class HTMLGenerator:
             </div>
             '''
         return ""
+    
+    def _build_812_general_info(self, document: EDIDocument) -> str:
+        """Build 812-specific general information section matching EDI Notepad style."""
+        h = document.header
+        
+        # Beginning Credit/Debit Adjustment section
+        bcd_rows = []
+        if h.get("adjustment_date"):
+            bcd_rows.append(f'<div class="info-row"><span class="info-label">Date</span><span class="info-value" style="color: #2563eb;">{h["adjustment_date"]}</span></div>')
+        if h.get("credit_debit_number"):
+            bcd_rows.append(f'<div class="info-row"><span class="info-label">Credit/Debit Adjustment Number</span><span class="info-value" style="color: #2563eb;">{h["credit_debit_number"]}</span></div>')
+        if h.get("transaction_handling_desc"):
+            bcd_rows.append(f'<div class="info-row"><span class="info-label">Transaction Handling Code</span><span class="info-value" style="color: #2563eb;">{h["transaction_handling_desc"]}</span></div>')
+        if h.get("amount"):
+            bcd_rows.append(f'<div class="info-row"><span class="info-label">Amount</span><span class="info-value" style="color: #2563eb;">{h["amount"]}</span></div>')
+        if h.get("credit_debit_flag_desc"):
+            bcd_rows.append(f'<div class="info-row"><span class="info-label">Credit/Debit Flag Code</span><span class="info-value" style="color: #2563eb;">{h["credit_debit_flag_desc"]}</span></div>')
+        if h.get("secondary_date"):
+            bcd_rows.append(f'<div class="info-row"><span class="info-label">Date</span><span class="info-value" style="color: #2563eb;">{h["secondary_date"]}</span></div>')
+        if h.get("invoice_number"):
+            bcd_rows.append(f'<div class="info-row"><span class="info-label">Invoice Number</span><span class="info-value" style="color: #2563eb;">{h["invoice_number"]}</span></div>')
+        if h.get("tertiary_date"):
+            bcd_rows.append(f'<div class="info-row"><span class="info-label">Date</span><span class="info-value" style="color: #2563eb;">{h["tertiary_date"]}</span></div>')
+        if h.get("po_number"):
+            bcd_rows.append(f'<div class="info-row"><span class="info-label">Purchase Order Number</span><span class="info-value" style="color: #2563eb;">{h["po_number"]}</span></div>')
+        if h.get("purpose_code"):
+            bcd_rows.append(f'<div class="info-row"><span class="info-label">Transaction Set Purpose Code</span><span class="info-value" style="color: #2563eb;">{h["purpose_code"]}</span></div>')
+        if h.get("transaction_type_desc"):
+            bcd_rows.append(f'<div class="info-row"><span class="info-label">Transaction Type Code</span><span class="info-value" style="color: #2563eb;">{h["transaction_type_desc"]}</span></div>')
+        
+        bcd_html = ""
+        if bcd_rows:
+            bcd_html = f'''
+            <div class="section">
+                <div class="section-title" style="background: #f5f5dc; padding: 8px 12px; margin-bottom: 0;">Beginning Credit/Debit Adjustment</div>
+                <div class="info-rows">{"".join(bcd_rows)}</div>
+            </div>
+            '''
+        
+        # Currency section
+        currency_html = ""
+        if h.get("currency"):
+            currency_html = f'''
+            <div class="section">
+                <div class="section-title" style="background: #f5f5dc; padding: 8px 12px; margin-bottom: 0;">Currency</div>
+                <div class="info-row"><span class="info-label"></span><span class="info-value" style="color: #2563eb;">{h["currency"]}</span></div>
+            </div>
+            '''
+        
+        # Contact Information section
+        contact_html = ""
+        contacts = h.get("contacts", [])
+        if contacts:
+            contact_rows = []
+            for c in contacts:
+                if c.get("name"):
+                    contact_rows.append(f'<div class="info-row"><span class="info-label">Customer Relations</span><span class="info-value" style="color: #2563eb;">{c["name"]}</span></div>')
+                if c.get("comm_number"):
+                    contact_rows.append(f'<div class="info-row"><span class="info-label">Telephone</span><span class="info-value" style="color: #2563eb;">{c["comm_number"]}</span></div>')
+            if contact_rows:
+                contact_html = f'''
+                <div class="section">
+                    <div class="section-title" style="background: #f5f5dc; padding: 8px 12px; margin-bottom: 0;">Contact Information</div>
+                    <div class="info-rows">{"".join(contact_rows)}</div>
+                </div>
+                '''
+        
+        return bcd_html + currency_html + contact_html
     
     def _build_parties(self, document: EDIDocument) -> str:
         """Build parties/addresses section."""
@@ -496,7 +569,12 @@ class HTMLGenerator:
         '''
     
     def _build_line_items(self, document: EDIDocument) -> str:
-        """Build line items table with descriptions."""
+        """Build line items table with descriptions - specialized for 812."""
+        
+        # 812 has specialized adjustment detail layout
+        if document.transaction_type == "812":
+            return self._build_812_adjustment_details(document)
+        
         if not document.line_items:
             return '<div class="section"><p>No line items in this document.</p></div>'
         
@@ -562,6 +640,101 @@ class HTMLGenerator:
             </div>
         </div>
         '''
+    
+    def _build_812_adjustment_details(self, document: EDIDocument) -> str:
+        """Build 812-specific Credit/Debit Adjustment Detail sections matching EDI Notepad."""
+        if not document.line_items:
+            return '<div class="section"><p>No adjustment details in this document.</p></div>'
+        
+        all_items_html = []
+        
+        for i, item in enumerate(document.line_items, 1):
+            rows = []
+            
+            # Adjustment Reason Code
+            if item.get("adjustment_reason"):
+                rows.append(f'<div class="info-row"><span class="info-label">Adjustment Reason Code</span><span class="info-value" style="color: #2563eb;">{item["adjustment_reason"]}</span></div>')
+            
+            # Credit/Debit Flag
+            if item.get("credit_debit_type"):
+                rows.append(f'<div class="info-row"><span class="info-label">Credit/Debit Flag Code</span><span class="info-value" style="color: #2563eb;">{item["credit_debit_type"]}</span></div>')
+            
+            # Assigned Identification
+            if item.get("assigned_id"):
+                rows.append(f'<div class="info-row"><span class="info-label">Assigned Identification</span><span class="info-value" style="color: #2563eb;">{item["assigned_id"]}</span></div>')
+            
+            # Amount
+            if item.get("adjustment_amount"):
+                amt = item["adjustment_amount"]
+                try:
+                    amt = f"{float(amt):,.2f}"
+                except:
+                    pass
+                rows.append(f'<div class="info-row"><span class="info-label">Amount</span><span class="info-value" style="color: #2563eb;">{amt}</span></div>')
+            
+            # Quantity
+            if item.get("quantity"):
+                rows.append(f'<div class="info-row"><span class="info-label">Credit/Debit Quantity</span><span class="info-value" style="color: #2563eb;">{item["quantity"]}</span></div>')
+            
+            # Unit of Measure
+            if item.get("unit"):
+                rows.append(f'<div class="info-row"><span class="info-label">Unit or Basis for Measurement Code</span><span class="info-value" style="color: #2563eb;">{item["unit"]}</span></div>')
+            
+            # Price Identifier Code
+            if item.get("price_id_desc"):
+                rows.append(f'<div class="info-row"><span class="info-label">Price Identifier Code</span><span class="info-value" style="color: #2563eb;">{item["price_id_desc"]}</span></div>')
+            
+            # Unit Price
+            if item.get("unit_price"):
+                price = item["unit_price"]
+                try:
+                    price = f"{float(price):.2f}"
+                except:
+                    pass
+                rows.append(f'<div class="info-row"><span class="info-label">Unit Price</span><span class="info-value" style="color: #2563eb;">{price}</span></div>')
+            
+            # Original Price Identifier
+            if item.get("original_price_id_desc"):
+                rows.append(f'<div class="info-row"><span class="info-label">Price Identifier Code</span><span class="info-value" style="color: #2563eb;">{item["original_price_id_desc"]}</span></div>')
+            
+            # Original Unit Price
+            if item.get("original_unit_price"):
+                price = item["original_unit_price"]
+                try:
+                    price = f"{float(price):.2f}"
+                except:
+                    pass
+                rows.append(f'<div class="info-row"><span class="info-label">Unit Price</span><span class="info-value" style="color: #2563eb;">{price}</span></div>')
+            
+            # Free-form Message
+            if item.get("message"):
+                rows.append(f'<div class="info-row"><span class="info-label">Free-form Message Text</span><span class="info-value" style="color: #2563eb;">{item["message"]}</span></div>')
+            
+            if rows:
+                cdd_html = f'''
+                <div class="section">
+                    <div class="section-title" style="background: #f5f5dc; padding: 8px 12px; margin-bottom: 0;">Credit/Debit Adjustment Detail</div>
+                    <div class="info-rows">{"".join(rows)}</div>
+                </div>
+                '''
+                all_items_html.append(cdd_html)
+            
+            # Part Numbers section
+            part_numbers = item.get("part_numbers", {})
+            if part_numbers:
+                pn_rows = []
+                for label, value in part_numbers.items():
+                    pn_rows.append(f'<div class="info-row"><span class="info-label">{label}</span><span class="info-value" style="color: #2563eb;">{value}</span></div>')
+                
+                pn_html = f'''
+                <div class="section">
+                    <div class="section-title" style="background: #f5f5dc; padding: 8px 12px; margin-bottom: 0;">Part Numbers</div>
+                    <div class="info-rows">{"".join(pn_rows)}</div>
+                </div>
+                '''
+                all_items_html.append(pn_html)
+        
+        return "".join(all_items_html)
     
     def _build_summary(self, document: EDIDocument) -> str:
         """Build summary section."""
