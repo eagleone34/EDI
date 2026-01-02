@@ -401,12 +401,21 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                             )}
                         </div>
 
-                        <button
-                            onClick={handleReset}
-                            className="text-slate-500 hover:text-slate-700 transition-colors"
-                        >
-                            Convert another file
-                        </button>
+                        <div className="flex items-center justify-center gap-4">
+                            <button
+                                onClick={handleReset}
+                                className="text-slate-500 hover:text-slate-700 transition-colors"
+                            >
+                                Convert another file
+                            </button>
+                            <span className="text-slate-300">|</span>
+                            <button
+                                onClick={handleReset}
+                                className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
+                            >
+                                Done
+                            </button>
+                        </div>
                     </div>
                 </div>
 
