@@ -3,9 +3,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase, Document } from "@/lib/supabase";
-import { ChevronUp, ChevronDown, FileText } from "lucide-react";
+import { ChevronUp, ChevronDown, FileText, Eye, Download, Mail, MoreHorizontal, X } from "lucide-react";
 
-type SortField = "created_at" | "transaction_type" | "filename";
+type SortField = "created_at" | "transaction_type" | "filename" | "trading_partner";
 type SortDirection = "asc" | "desc";
 
 export default function TransactionsTable() {
@@ -16,6 +16,10 @@ export default function TransactionsTable() {
     const [filterType, setFilterType] = useState("all");
     const [sortField, setSortField] = useState<SortField>("created_at");
     const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+    const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
+    const [emailModal, setEmailModal] = useState<{ doc: Document } | null>(null);
+    const [emailTo, setEmailTo] = useState("");
+    const [emailSending, setEmailSending] = useState(false);
 
     useEffect(() => {
         const fetchDocuments = async () => {
@@ -46,12 +50,36 @@ export default function TransactionsTable() {
         fetchDocuments();
     }, [user?.id]);
 
+    // Get unique transaction types from actual data for dynamic filter
+    const availableTypes = useMemo(() => {
+        const types = new Set<string>();
+        documents.forEach((doc) => {
+            types.add(doc.transaction_type);
+        });
+        return Array.from(types).sort();
+    }, [documents]);
+
+    // Transaction type names mapping
+    const typeNames: Record<string, string> = {
+        "850": "Purchase Order",
+        "810": "Invoice",
+        "812": "Credit/Debit",
+        "856": "ASN",
+        "855": "PO Ack",
+        "997": "Func Ack",
+        "820": "Payment",
+        "860": "PO Change",
+        "861": "Receiving",
+        "870": "Status",
+    };
+
     // Filter and sort documents
     const filteredAndSortedDocuments = useMemo(() => {
         let result = documents.filter((doc) => {
             const matchesSearch =
                 doc.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                doc.transaction_name.toLowerCase().includes(searchTerm.toLowerCase());
+                doc.transaction_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (doc.trading_partner?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
             const matchesType = filterType === "all" || doc.transaction_type === filterType;
             return matchesSearch && matchesType;
         });
@@ -98,138 +126,249 @@ export default function TransactionsTable() {
         });
     };
 
+    // Action handlers
+    const handleView = (doc: Document) => {
+        if (doc.html_url) {
+            window.open(doc.html_url, "_blank");
+        } else if (doc.pdf_url) {
+            window.open(doc.pdf_url, "_blank");
+        }
+        setActiveActionMenu(null);
+    };
+
+    const handleDownload = (doc: Document) => {
+        if (doc.pdf_url) {
+            const link = document.createElement("a");
+            link.href = doc.pdf_url;
+            link.download = doc.filename.replace(/\.[^/.]+$/, "") + ".pdf";
+            link.click();
+        }
+        setActiveActionMenu(null);
+    };
+
+    const handleEmailClick = (doc: Document) => {
+        setEmailModal({ doc });
+        setActiveActionMenu(null);
+    };
+
+    const handleSendEmail = async () => {
+        if (!emailModal || !emailTo) return;
+
+        setEmailSending(true);
+        // TODO: Implement email sending via backend API
+        // For now, just simulate
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        alert(`Email would be sent to: ${emailTo} with ${emailModal.doc.filename}`);
+        setEmailSending(false);
+        setEmailModal(null);
+        setEmailTo("");
+    };
+
+    // Close action menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = () => setActiveActionMenu(null);
+        if (activeActionMenu) {
+            document.addEventListener("click", handleClickOutside);
+            return () => document.removeEventListener("click", handleClickOutside);
+        }
+    }, [activeActionMenu]);
+
     if (loading) {
         return <div className="p-8 text-center text-gray-500">Loading your conversions...</div>;
     }
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-xl font-bold text-slate-800">Recent Conversions</h2>
+        <>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h2 className="text-xl font-bold text-slate-800">Recent Conversions</h2>
 
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        placeholder="Search files..."
-                        className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Search files..."
+                            className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
 
-                    <select
-                        className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                    >
-                        <option value="all">All Types</option>
-                        <option value="850">850 (Purchase Order)</option>
-                        <option value="810">810 (Invoice)</option>
-                        <option value="812">812 (Credit/Debit)</option>
-                        <option value="856">856 (ASN)</option>
-                        <option value="855">855 (PO Ack)</option>
-                        <option value="997">997 (Func Ack)</option>
-                    </select>
+                        {/* Dynamic filter - only shows types that exist in data */}
+                        <select
+                            className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                            value={filterType}
+                            onChange={(e) => setFilterType(e.target.value)}
+                        >
+                            <option value="all">All Types</option>
+                            {availableTypes.map((type) => (
+                                <option key={type} value={type}>
+                                    {type} ({typeNames[type] || type})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead>
+                            <tr className="bg-slate-50 text-slate-500 font-medium">
+                                <th className="px-6 py-4">Status</th>
+                                <th
+                                    className="px-6 py-4 cursor-pointer hover:text-slate-700 select-none"
+                                    onClick={() => handleSort("transaction_type")}
+                                >
+                                    Type <SortIcon field="transaction_type" />
+                                </th>
+                                <th
+                                    className="px-6 py-4 cursor-pointer hover:text-slate-700 select-none"
+                                    onClick={() => handleSort("trading_partner")}
+                                >
+                                    Customer <SortIcon field="trading_partner" />
+                                </th>
+                                <th
+                                    className="px-6 py-4 cursor-pointer hover:text-slate-700 select-none"
+                                    onClick={() => handleSort("filename")}
+                                >
+                                    Filename <SortIcon field="filename" />
+                                </th>
+                                <th
+                                    className="px-6 py-4 cursor-pointer hover:text-slate-700 select-none"
+                                    onClick={() => handleSort("created_at")}
+                                >
+                                    Date <SortIcon field="created_at" />
+                                </th>
+                                <th className="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {filteredAndSortedDocuments.map((doc) => (
+                                <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-6 py-4">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                            Completed
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">
+                                            EDI {doc.transaction_type}
+                                        </span>
+                                        <span className="text-slate-400 text-xs ml-2">{doc.transaction_name}</span>
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-600">
+                                        {doc.trading_partner || <span className="text-slate-400">—</span>}
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-600 font-medium max-w-xs truncate" title={doc.filename}>
+                                        {doc.filename}
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-500">
+                                        {formatDate(doc.created_at)}
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="relative inline-block">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveActionMenu(activeActionMenu === doc.id ? null : doc.id);
+                                                }}
+                                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                            >
+                                                <MoreHorizontal className="w-4 h-4 text-slate-500" />
+                                            </button>
+
+                                            {/* Action Dropdown */}
+                                            {activeActionMenu === doc.id && (
+                                                <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 min-w-[140px]">
+                                                    <button
+                                                        onClick={() => handleView(doc)}
+                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                        View
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDownload(doc)}
+                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                    >
+                                                        <Download className="w-4 h-4" />
+                                                        Download
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleEmailClick(doc)}
+                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                    >
+                                                        <Mail className="w-4 h-4" />
+                                                        Email
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+
+                            {filteredAndSortedDocuments.length === 0 && (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-16 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                                                <FileText className="w-8 h-8 text-slate-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-slate-600 font-medium">No conversions yet</p>
+                                                <p className="text-slate-400 text-sm mt-1">
+                                                    Upload an EDI file above to get started
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead>
-                        <tr className="bg-slate-50 text-slate-500 font-medium">
-                            <th className="px-6 py-4">Status</th>
-                            <th
-                                className="px-6 py-4 cursor-pointer hover:text-slate-700 select-none"
-                                onClick={() => handleSort("transaction_type")}
-                            >
-                                Type <SortIcon field="transaction_type" />
-                            </th>
-                            <th
-                                className="px-6 py-4 cursor-pointer hover:text-slate-700 select-none"
-                                onClick={() => handleSort("filename")}
-                            >
-                                Filename <SortIcon field="filename" />
-                            </th>
-                            <th
-                                className="px-6 py-4 cursor-pointer hover:text-slate-700 select-none"
-                                onClick={() => handleSort("created_at")}
-                            >
-                                Date <SortIcon field="created_at" />
-                            </th>
-                            <th className="px-6 py-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {filteredAndSortedDocuments.map((doc) => (
-                            <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-6 py-4">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                                        Completed
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">
-                                        EDI {doc.transaction_type}
-                                    </span>
-                                    <span className="text-slate-400 text-xs ml-2">{doc.transaction_name}</span>
-                                </td>
-                                <td className="px-6 py-4 text-slate-600 font-medium">
-                                    {doc.filename}
-                                </td>
-                                <td className="px-6 py-4 text-slate-500">
-                                    {formatDate(doc.created_at)}
-                                </td>
-                                <td className="px-6 py-4 text-right space-x-3">
-                                    {doc.pdf_url && (
-                                        <a
-                                            href={doc.pdf_url}
-                                            target="_blank"
-                                            className="text-blue-600 hover:text-blue-800 font-medium text-xs hover:underline"
-                                        >
-                                            PDF
-                                        </a>
-                                    )}
-                                    {doc.excel_url && (
-                                        <a
-                                            href={doc.excel_url}
-                                            target="_blank"
-                                            className="text-green-600 hover:text-green-800 font-medium text-xs hover:underline"
-                                        >
-                                            Excel
-                                        </a>
-                                    )}
-                                    {doc.html_url && (
-                                        <a
-                                            href={doc.html_url}
-                                            target="_blank"
-                                            className="text-purple-600 hover:text-purple-800 font-medium text-xs hover:underline"
-                                        >
-                                            HTML
-                                        </a>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
+            {/* Email Modal */}
+            {emailModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-slate-800">Send via Email</h3>
+                            <button onClick={() => setEmailModal(null)} className="p-1 hover:bg-slate-100 rounded">
+                                <X className="w-5 h-5 text-slate-500" />
+                            </button>
+                        </div>
 
-                        {filteredAndSortedDocuments.length === 0 && (
-                            <tr>
-                                <td colSpan={5} className="px-6 py-16 text-center">
-                                    <div className="flex flex-col items-center gap-3">
-                                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
-                                            <FileText className="w-8 h-8 text-slate-400" />
-                                        </div>
-                                        <div>
-                                            <p className="text-slate-600 font-medium">No conversions yet</p>
-                                            <p className="text-slate-400 text-sm mt-1">
-                                                Upload an EDI file on the homepage to get started
-                                            </p>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                        <p className="text-sm text-slate-600 mb-4">
+                            Send <span className="font-medium">{emailModal.doc.filename}</span> to:
+                        </p>
+
+                        <input
+                            type="email"
+                            placeholder="recipient@example.com"
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={emailTo}
+                            onChange={(e) => setEmailTo(e.target.value)}
+                        />
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setEmailModal(null)}
+                                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSendEmail}
+                                disabled={!emailTo || emailSending}
+                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                            >
+                                {emailSending ? "Sending..." : "Send Email"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
