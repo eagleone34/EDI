@@ -167,12 +167,37 @@ export default function HistoryPage() {
         if (!emailModal || !emailTo) return;
 
         setEmailSending(true);
-        // TODO: Implement email sending via backend API
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        alert(`Email would be sent to: ${emailTo} with ${emailModal.doc.filename}`);
-        setEmailSending(false);
-        setEmailModal(null);
-        setEmailTo("");
+
+        try {
+            const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://edi-production-d983.up.railway.app";
+
+            const response = await fetch(`${API_BASE}/api/v1/email/send`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    to_emails: emailTo.split(",").map(e => e.trim()).filter(e => e),
+                    filename: emailModal.doc.filename,
+                    transaction_type: emailModal.doc.transaction_type,
+                    transaction_name: emailModal.doc.transaction_name || emailModal.doc.transaction_type,
+                    trading_partner: emailModal.doc.trading_partner,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.status === "success") {
+                alert(`Email sent successfully to: ${emailTo}`);
+            } else {
+                alert(`Failed to send email: ${result.detail || result.message || "Unknown error"}`);
+            }
+        } catch (error) {
+            console.error("Email send error:", error);
+            alert("Failed to send email. Please try again.");
+        } finally {
+            setEmailSending(false);
+            setEmailModal(null);
+            setEmailTo("");
+        }
     };
 
     // Close action menu when clicking outside

@@ -164,6 +164,143 @@ class EmailService:
         except Exception as e:
             print(f"Failed to send email: {e}")
             return {"success": False, "message": str(e)}
+    
+    def send_converted_document(
+        self,
+        to_emails: list,
+        filename: str,
+        transaction_type: str,
+        transaction_name: str,
+        pdf_base64: str = None,
+        excel_base64: str = None,
+        trading_partner: str = None,
+    ) -> dict:
+        """
+        Send converted EDI document to recipients with attachments.
+        
+        Args:
+            to_emails: List of recipient email addresses
+            filename: Original filename
+            transaction_type: EDI transaction type (e.g., "850")
+            transaction_name: Human-readable name (e.g., "Purchase Order")
+            pdf_base64: Base64-encoded PDF content
+            excel_base64: Base64-encoded Excel content
+            trading_partner: Trading partner name for reference
+        
+        Returns:
+            dict with success status and message
+        """
+        if not self.api_key:
+            print(f"[DEV MODE] Would send document to: {to_emails}")
+            return {"success": True, "message": "Email would be sent (dev mode)", "dev_mode": True}
+        
+        if not RESEND_AVAILABLE:
+            return {"success": False, "message": "Email service not available"}
+        
+        if not to_emails:
+            return {"success": False, "message": "No recipients specified"}
+        
+        # Build subject
+        subject = f"[{transaction_type}] {filename} - Converted Document"
+        if trading_partner:
+            subject = f"[{transaction_type}] {trading_partner} - {filename}"
+        
+        # Build HTML body
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; margin: 0; padding: 20px; background-color: #f1f5f9;">
+    <div style="max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">ReadableEDI</h1>
+            <p style="color: #93c5fd; margin: 8px 0 0;">Your converted document is ready</p>
+        </div>
+        
+        <div style="padding: 24px; background: #ffffff; border: 1px solid #e2e8f0; border-top: none;">
+            <h2 style="color: #1e293b; margin: 0 0 16px;">Document Details</h2>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px 0; color: #64748b; width: 120px;">File:</td>
+                    <td style="padding: 8px 0; color: #1e293b; font-weight: 500;">{filename}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #64748b;">Type:</td>
+                    <td style="padding: 8px 0; color: #1e293b;">
+                        <span style="background: #dbeafe; color: #1d4ed8; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">
+                            EDI {transaction_type}
+                        </span>
+                        <span style="color: #64748b; margin-left: 8px;">{transaction_name}</span>
+                    </td>
+                </tr>
+                {"<tr><td style='padding: 8px 0; color: #64748b;'>Customer:</td><td style='padding: 8px 0; color: #1e293b; font-weight: 500;'>" + trading_partner + "</td></tr>" if trading_partner else ""}
+            </table>
+            
+            <p style="color: #64748b; margin: 24px 0 16px;">
+                Your converted document is attached to this email. You can open it in your preferred application.
+            </p>
+            
+            <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin: 16px 0;">
+                <p style="margin: 0; color: #64748b; font-size: 14px;">
+                    <strong>Attached files:</strong><br>
+                    {"• PDF version<br>" if pdf_base64 else ""}
+                    {"• Excel version" if excel_base64 else ""}
+                </p>
+            </div>
+        </div>
+        
+        <div style="padding: 16px 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px; text-align: center;">
+            <p style="color: #94a3b8; margin: 0; font-size: 12px;">
+                Sent automatically by <a href="https://readableedi.com" style="color: #3b82f6;">ReadableEDI</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        
+        # Build attachments
+        attachments = []
+        base_filename = filename.rsplit(".", 1)[0] if "." in filename else filename
+        
+        if pdf_base64:
+            attachments.append({
+                "filename": f"{base_filename}.pdf",
+                "content": pdf_base64,
+            })
+        
+        if excel_base64:
+            attachments.append({
+                "filename": f"{base_filename}.xlsx", 
+                "content": excel_base64,
+            })
+        
+        try:
+            send_params = {
+                "from": f"{self.from_name} <{self.from_email}>",
+                "to": to_emails if isinstance(to_emails, list) else [to_emails],
+                "subject": subject,
+                "html": html_content,
+            }
+            
+            if attachments:
+                send_params["attachments"] = attachments
+            
+            response = resend.Emails.send(send_params)
+            
+            return {
+                "success": True, 
+                "message": f"Email sent to {len(to_emails)} recipient(s)",
+                "id": response.get("id"),
+            }
+            
+        except Exception as e:
+            print(f"Failed to send document email: {e}")
+            return {"success": False, "message": str(e)}
 
 
 # Singleton instance

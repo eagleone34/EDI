@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     FROM_EMAIL: str = "hello@readableedi.com"
     
+    # Supabase (for email routes lookup)
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_KEY: str = ""
+    
     # Database
     DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/edi_email"
     
