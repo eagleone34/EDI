@@ -205,7 +205,7 @@ export default function TransactionsTable() {
 
     return (
         <>
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
                 <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <h2 className="text-xl font-bold text-slate-800">Recent Conversions</h2>
 
@@ -234,170 +234,173 @@ export default function TransactionsTable() {
                     </div>
                 </div>
 
-                <table className="w-full table-fixed text-left text-sm">
-                    <thead>
-                        <tr className="bg-slate-50 text-slate-500 font-medium">
-                            <th className="px-3 py-3 w-[10%]">Status</th>
-                            <th
-                                className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[12%]"
-                                onClick={() => handleSort("transaction_type")}
-                            >
-                                Type <SortIcon field="transaction_type" />
-                            </th>
-                            <th
-                                className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[18%]"
-                                onClick={() => handleSort("trading_partner")}
-                            >
-                                Customer <SortIcon field="trading_partner" />
-                            </th>
-                            <th
-                                className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[30%]"
-                                onClick={() => handleSort("filename")}
-                            >
-                                Filename <SortIcon field="filename" />
-                            </th>
-                            <th
-                                className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[18%]"
-                                onClick={() => handleSort("created_at")}
-                            >
-                                Date <SortIcon field="created_at" />
-                            </th>
-                            <th className="px-3 py-3 text-center w-[12%]">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {filteredAndSortedDocuments.map((doc) => (
-                            <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-3 py-3">
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                                        Done
-                                    </span>
-                                </td>
-                                <td className="px-3 py-3">
-                                    <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-bold">
-                                        {doc.transaction_type}
-                                    </span>
-                                </td>
-                                <td className="px-3 py-3 overflow-hidden">
-                                    <p className="text-slate-600 truncate">
-                                        {doc.trading_partner || <span className="text-slate-400">—</span>}
-                                    </p>
-                                </td>
-                                <td className="px-3 py-3 overflow-hidden">
-                                    <p className="text-slate-600 font-medium truncate" title={doc.filename}>
-                                        {doc.filename}
-                                    </p>
-                                </td>
-                                <td className="px-3 py-3 text-slate-500">
-                                    {formatDate(doc.created_at)}
-                                </td>
-                                <td className="px-3 py-3">
-                                    <div className="flex justify-center">
-                                        <div className="relative">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setActiveActionMenu(activeActionMenu === doc.id ? null : doc.id);
-                                                }}
-                                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                                            >
-                                                <MoreHorizontal className="w-4 h-4 text-slate-500" />
-                                            </button>
-
-                                            {/* Action Dropdown */}
-                                            {activeActionMenu === doc.id && (
-                                                <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 min-w-[140px]">
-                                                    <button
-                                                        onClick={() => handleView(doc)}
-                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                        View
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDownload(doc)}
-                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                                                    >
-                                                        <Download className="w-4 h-4" />
-                                                        Download
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleEmailClick(doc)}
-                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                                                    >
-                                                        <Mail className="w-4 h-4" />
-                                                        Email
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </td>
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 pb-32">
+                    <table className="w-full table-fixed text-left text-sm">
+                        <thead>
+                            <tr className="bg-slate-50 text-slate-500 font-medium">
+                                <th className="px-3 py-3 w-[10%]">Status</th>
+                                <th
+                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[12%]"
+                                    onClick={() => handleSort("transaction_type")}
+                                >
+                                    Type <SortIcon field="transaction_type" />
+                                </th>
+                                <th
+                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[18%]"
+                                    onClick={() => handleSort("trading_partner")}
+                                >
+                                    Customer <SortIcon field="trading_partner" />
+                                </th>
+                                <th
+                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[30%]"
+                                    onClick={() => handleSort("filename")}
+                                >
+                                    Filename <SortIcon field="filename" />
+                                </th>
+                                <th
+                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[18%]"
+                                    onClick={() => handleSort("created_at")}
+                                >
+                                    Date <SortIcon field="created_at" />
+                                </th>
+                                <th className="px-3 py-3 text-center w-[12%]">Actions</th>
                             </tr>
-                        ))}
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {filteredAndSortedDocuments.map((doc) => (
+                                <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-3 py-3">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                            Done
+                                        </span>
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-bold">
+                                            {doc.transaction_type}
+                                        </span>
+                                    </td>
+                                    <td className="px-3 py-3 overflow-hidden">
+                                        <p className="text-slate-600 truncate">
+                                            {doc.trading_partner || <span className="text-slate-400">—</span>}
+                                        </p>
+                                    </td>
+                                    <td className="px-3 py-3 overflow-hidden">
+                                        <p className="text-slate-600 font-medium truncate" title={doc.filename}>
+                                            {doc.filename}
+                                        </p>
+                                    </td>
+                                    <td className="px-3 py-3 text-slate-500">
+                                        {formatDate(doc.created_at)}
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <div className="flex justify-center">
+                                            <div className="relative">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveActionMenu(activeActionMenu === doc.id ? null : doc.id);
+                                                    }}
+                                                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                                >
+                                                    <MoreHorizontal className="w-4 h-4 text-slate-500" />
+                                                </button>
 
-                        {filteredAndSortedDocuments.length === 0 && (
-                            <tr>
-                                <td colSpan={6} className="px-6 py-16 text-center">
-                                    <div className="flex flex-col items-center gap-3">
-                                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
-                                            <FileText className="w-8 h-8 text-slate-400" />
+                                                {/* Action Dropdown */}
+                                                {activeActionMenu === doc.id && (
+                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 min-w-[140px]">
+                                                        <button
+                                                            onClick={() => handleView(doc)}
+                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                            View
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDownload(doc)}
+                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                        >
+                                                            <Download className="w-4 h-4" />
+                                                            Download
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleEmailClick(doc)}
+                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                        >
+                                                            <Mail className="w-4 h-4" />
+                                                            Email
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-slate-600 font-medium">No conversions yet</p>
-                                            <p className="text-slate-400 text-sm mt-1">
-                                                Upload an EDI file above to get started
-                                            </p>
+                                    </td>
+                                </tr>
+                            ))}
+
+                            {filteredAndSortedDocuments.length === 0 && (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-16 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                                                <FileText className="w-8 h-8 text-slate-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-slate-600 font-medium">No conversions yet</p>
+                                                <p className="text-slate-400 text-sm mt-1">
+                                                    Upload an EDI file above to get started
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Email Modal */}
-            {emailModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-slate-800">Send via Email</h3>
-                            <button onClick={() => setEmailModal(null)} className="p-1 hover:bg-slate-100 rounded">
-                                <X className="w-5 h-5 text-slate-500" />
-                            </button>
-                        </div>
+            {
+                emailModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-slate-800">Send via Email</h3>
+                                <button onClick={() => setEmailModal(null)} className="p-1 hover:bg-slate-100 rounded">
+                                    <X className="w-5 h-5 text-slate-500" />
+                                </button>
+                            </div>
 
-                        <p className="text-sm text-slate-600 mb-4">
-                            Send <span className="font-medium">{emailModal.doc.filename}</span> to:
-                        </p>
+                            <p className="text-sm text-slate-600 mb-4">
+                                Send <span className="font-medium">{emailModal.doc.filename}</span> to:
+                            </p>
 
-                        <input
-                            type="email"
-                            placeholder="recipient@example.com"
-                            className="w-full px-4 py-2 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
-                            value={emailTo}
-                            onChange={(e) => setEmailTo(e.target.value)}
-                        />
+                            <input
+                                type="email"
+                                placeholder="recipient@example.com"
+                                className="w-full px-4 py-2 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
+                                value={emailTo}
+                                onChange={(e) => setEmailTo(e.target.value)}
+                            />
 
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setEmailModal(null)}
-                                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSendEmail}
-                                disabled={!emailTo || emailSending}
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                            >
-                                {emailSending ? "Sending..." : "Send Email"}
-                            </button>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setEmailModal(null)}
+                                    className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSendEmail}
+                                    disabled={!emailTo || emailSending}
+                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                >
+                                    {emailSending ? "Sending..." : "Send Email"}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )
+                )
             }
         </>
     );
