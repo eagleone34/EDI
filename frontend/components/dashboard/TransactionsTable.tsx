@@ -128,10 +128,39 @@ export default function TransactionsTable() {
 
     // Action handlers
     const handleView = (doc: Document) => {
-        if (doc.html_url) {
-            window.open(doc.html_url, "_blank");
-        } else if (doc.pdf_url) {
-            window.open(doc.pdf_url, "_blank");
+        // Helper to open base64 data in new tab via Blob
+        const openDataUrl = (dataUrl: string, type: string) => {
+            try {
+                // Extract base64 content
+                const base64Match = dataUrl.match(/base64,(.+)/);
+                if (!base64Match) return false;
+
+                const base64Data = base64Match[1];
+                const byteCharacters = atob(base64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: type });
+                const url = URL.createObjectURL(blob);
+                window.open(url, "_blank");
+
+                // Cleanup URL after a delay (browser needs it to open tab first)
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+                return true;
+            } catch (e) {
+                console.error("Error displaying file:", e);
+                return false;
+            }
+        };
+
+        if (doc.pdf_url) {
+            // Prioritize PDF View
+            openDataUrl(doc.pdf_url, "application/pdf");
+        } else if (doc.html_url) {
+            // Fallback to HTML
+            openDataUrl(doc.html_url, "text/html");
         } else {
             alert("File preview not available for this archived item.");
         }

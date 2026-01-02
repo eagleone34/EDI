@@ -1,0 +1,20 @@
+BIG*20251120*38*20251120*4725610431Sams2~
+REF*IA*129881991~
+N1*ST*SAMS WHOLESALE CLUB~
+N1*RI*Corelle Brands LLC f/k/a Instant Br*1*012935800~
+N3*PO Box 7410464~
+N4*Chicago*IL*606740464~
+ITD*01**2*20251215*25*20251225*35*1128****Up to 05/08/2025 you receive 2.000  % discount~
+DTM*011*20251120~
+IT1*001*5*EA*22.56**UP*012345678905~
+PID*F****Pyrex Simply Store 28pc Set Sam's Club~
+IT1*002*5*EA*22.56**UP*123456789128~
+PID*F****Pyrex Simply Store 28pc Set Sam's Club~
+IT1*003*5*EA*22.56**UP*123456789142~
+PID*F****Pyrex Simply Store 28pc Set Sam's Club~
+IT1*004*5*EA*22.56**UP*123456789145~
+PID*F****Pyrex Simply Store 28pc Set Sam's Club~
+IT1*005*5*EA*22.56**UP*123456789149~
+PID*F****Pyrex Simply Store 28pc Set Sam's Club~
+TDS*56400*56400~
+CTT*5~

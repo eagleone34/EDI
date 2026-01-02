@@ -391,6 +391,31 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
         const isDemoMode = result.id.startsWith("demo_");
         const baseFilename = file?.name.replace(/\.[^.]+$/, "") || "converted";
 
+        // Helper to open base64 data in new tab via Blob
+        const openDataUrl = (dataUrl: string, type: string) => {
+            try {
+                const base64Match = dataUrl.match(/base64,(.+)/);
+                if (!base64Match) return false;
+
+                const base64Data = base64Match[1];
+                const byteCharacters = atob(base64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: type });
+                const url = URL.createObjectURL(blob);
+                window.open(url, "_blank");
+
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+                return true;
+            } catch (e) {
+                console.error("Error opening file:", e);
+                return false;
+            }
+        };
+
         return (
             <>
                 <div className="bg-white rounded-2xl p-8 shadow-lg border border-green-200">
@@ -448,11 +473,11 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                             )}
                             {result.downloads.html && (
                                 <button
-                                    onClick={() => handleDownload(result.downloads.html!, `${baseFilename}.html`)}
+                                    onClick={() => openDataUrl(result.downloads.html!, "text/html")}
                                     className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors"
                                 >
                                     <FileUp className="w-4 h-4" />
-                                    Download HTML
+                                    View HTML
                                 </button>
                             )}
                         </div>

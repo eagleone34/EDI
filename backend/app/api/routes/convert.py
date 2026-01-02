@@ -219,8 +219,15 @@ def generate_combined_output(documents: list, generator) -> bytes:
 
 def generate_combined_html(documents: list, generator: HTMLGenerator) -> bytes:
     """Generate combined HTML for all documents with premium styling."""
+    if not documents:
+        return b""
+        
     if len(documents) == 1:
         return generator.generate(documents[0])
+    
+    # Get dynamic names from first document
+    trans_name = documents[0].transaction_name
+    trans_type = documents[0].transaction_type
     
     # Full premium CSS (same as single doc generator)
     css = """
@@ -276,20 +283,20 @@ def generate_combined_html(documents: list, generator: HTMLGenerator) -> bytes:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EDI Conversion - {len(documents)} Purchase Orders</title>
+    <title>EDI Conversion - {len(documents)} {trans_name}s</title>
     <style>{css}</style>
 </head>
 <body>
 <div class="main-container">
     <div class="nav-card">
-        <h1>📦 {len(documents)} Purchase Orders Found</h1>
+        <h1>📦 {len(documents)} {trans_name}s Found</h1>
         <div class="nav-links">
 """]
     
     # Navigation links
     for i, doc in enumerate(documents, 1):
-        po_num = doc.header.get("po_number", f"Document {i}")
-        html_parts.append(f'            <a href="#doc-{i}" class="nav-link">PO #{po_num}</a>')
+        po_num = doc.header.get("po_number") or doc.header.get("credit_debit_number") or f"Document {i}"
+        html_parts.append(f'            <a href="#doc-{i}" class="nav-link">#{po_num}</a>')
     
     html_parts.append("""        </div>
     </div>
@@ -297,13 +304,13 @@ def generate_combined_html(documents: list, generator: HTMLGenerator) -> bytes:
     
     # Generate each document
     for i, doc in enumerate(documents, 1):
-        po_num = doc.header.get("po_number", f"Document {i}")
+        ref_num = doc.header.get("po_number") or doc.header.get("credit_debit_number") or f"Document {i}"
         
         html_parts.append(f"""
     <div class="document-card" id="doc-{i}">
         <div class="doc-header">
-            <h2>Purchase Order</h2>
-            <span class="doc-badge">{i} of {len(documents)} — PO #{po_num}</span>
+            <h2>{doc.transaction_name}</h2>
+            <span class="doc-badge">{i} of {len(documents)} — {doc.transaction_type} #{ref_num}</span>
         </div>
         <div class="doc-content">
 """)
