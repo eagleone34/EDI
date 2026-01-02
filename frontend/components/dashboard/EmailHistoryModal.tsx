@@ -4,7 +4,7 @@ import { X, Loader2, RefreshCw, CheckCircle, XCircle, Clock } from "lucide-react
 
 interface EmailLog {
     id: string;
-    created_at: string;
+    sent_at: string;
     recipient_email: string;
     status: string;
     error_message: string | null;
@@ -45,7 +45,7 @@ export default function EmailHistoryModal({ routeId, isOpen, onClose }: EmailHis
                     )
                 `)
                 .eq("route_id", routeId)
-                .order("created_at", { ascending: false })
+                .order("sent_at", { ascending: false })
                 .limit(20);
 
             if (error) {
@@ -129,7 +129,7 @@ export default function EmailHistoryModal({ routeId, isOpen, onClose }: EmailHis
                                                 {log.status.toUpperCase()}
                                             </span>
                                             <span className="text-xs text-slate-400">
-                                                {new Date(log.created_at).toLocaleString()}
+                                                {new Date(log.sent_at).toLocaleString()}
                                             </span>
                                         </div>
                                         <p className="text-sm font-medium text-slate-800">{log.documents?.filename || "Unknown File"}</p>
