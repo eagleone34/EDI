@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { Plus, Trash2, Mail, AlertCircle, Check, Loader2 } from "lucide-react";
@@ -12,53 +12,78 @@ interface EmailRoute {
     is_active: boolean;
 }
 
-const TRANSACTION_TYPES = [
-    { code: "850", name: "Purchase Order" },
-    { code: "810", name: "Invoice" },
-    { code: "812", name: "Credit/Debit" },
-    { code: "856", name: "ASN" },
-    { code: "855", name: "PO Ack" },
-    { code: "997", name: "Func Ack" },
-];
+// Type names mapping
+const TYPE_NAMES: Record<string, string> = {
+    "850": "Purchase Order",
+    "810": "Invoice",
+    "812": "Credit/Debit",
+    "856": "ASN",
+    "855": "PO Ack",
+    "997": "Func Ack",
+    "820": "Payment",
+    "860": "PO Change",
+    "861": "Receiving",
+    "870": "Status",
+};
 
 export default function EmailRoutesSettings() {
     const { user } = useAuth();
     const [routes, setRoutes] = useState<EmailRoute[]>([]);
+    const [userDocumentTypes, setUserDocumentTypes] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
     // New route form
-    const [newType, setNewType] = useState("850");
+    const [newType, setNewType] = useState("");
     const [newEmails, setNewEmails] = useState("");
     const [showForm, setShowForm] = useState(false);
 
     useEffect(() => {
-        fetchRoutes();
+        fetchData();
     }, [user?.id]);
 
-    const fetchRoutes = async () => {
+    const fetchData = async () => {
         if (!user?.id) {
             setLoading(false);
             return;
         }
 
         try {
-            const { data, error } = await supabase
+            // Fetch email routes
+            const { data: routesData, error: routesError } = await supabase
                 .from("email_routes")
                 .select("*")
                 .eq("user_id", user.id)
                 .order("transaction_type");
 
-            if (error) {
-                console.error("Error fetching email routes:", error);
+            if (routesError) {
+                console.error("Error fetching email routes:", routesError);
                 setError("Failed to load email routes");
             } else {
-                setRoutes(data || []);
+                setRoutes(routesData || []);
+            }
+
+            // Fetch unique transaction types from user's documents
+            const { data: docsData, error: docsError } = await supabase
+                .from("documents")
+                .select("transaction_type")
+                .eq("user_id", user.id);
+
+            if (docsError) {
+                console.error("Error fetching document types:", docsError);
+            } else {
+                const uniqueTypes = [...new Set((docsData || []).map(d => d.transaction_type))].sort();
+                setUserDocumentTypes(uniqueTypes);
+                // Set default newType to first available type if not already set
+                if (uniqueTypes.length > 0 && !newType) {
+                    setNewType(uniqueTypes[0]);
+                }
             }
         } catch (err) {
-            console.error("Failed to fetch email routes:", err);
+            console.error("Failed to fetch data:", err);
+            setError("Failed to load data");
         } finally {
             setLoading(false);
         }
@@ -160,8 +185,7 @@ export default function EmailRoutesSettings() {
     };
 
     const getTypeName = (code: string) => {
-        const type = TRANSACTION_TYPES.find(t => t.code === code);
-        return type ? `${type.code} - ${type.name}` : code;
+        return TYPE_NAMES[code] || code;
     };
 
     if (loading) {
@@ -224,11 +248,15 @@ export default function EmailRoutesSettings() {
                                 onChange={(e) => setNewType(e.target.value)}
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                             >
-                                {TRANSACTION_TYPES.map((type) => (
-                                    <option key={type.code} value={type.code}>
-                                        {type.code} - {type.name}
-                                    </option>
-                                ))}
+                                {userDocumentTypes.length === 0 ? (
+                                    <option value="" disabled>No documents yet</option>
+                                ) : (
+                                    userDocumentTypes.map((type) => (
+                                        <option key={type} value={type}>
+                                            {type} - {TYPE_NAMES[type] || type}
+                                        </option>
+                                    ))
+                                )}
                             </select>
                         </div>
                         <div>
@@ -285,7 +313,7 @@ export default function EmailRoutesSettings() {
                                         {route.transaction_type}
                                     </span>
                                     <span className="text-slate-600 text-sm">
-                                        {TRANSACTION_TYPES.find(t => t.code === route.transaction_type)?.name}
+                                        {TYPE_NAMES[route.transaction_type] || route.transaction_type}
                                     </span>
                                     {!route.is_active && (
                                         <span className="px-2 py-0.5 bg-slate-200 text-slate-500 rounded text-xs">
@@ -301,8 +329,8 @@ export default function EmailRoutesSettings() {
                                 <button
                                     onClick={() => handleToggleRoute(route)}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${route.is_active
-                                            ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                            : "bg-green-100 text-green-700 hover:bg-green-200"
+                                        ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                        : "bg-green-100 text-green-700 hover:bg-green-200"
                                         }`}
                                 >
                                     {route.is_active ? "Pause" : "Resume"}
