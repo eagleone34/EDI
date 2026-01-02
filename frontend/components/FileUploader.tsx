@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FileUp, X, CheckCircle, AlertCircle, Loader2, ChevronDown, Lock } from "lucide-react";
 import { EmailGateModal } from "./EmailGateModal";
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 
 interface ConversionResult {
     id: string;
@@ -39,6 +41,7 @@ const TRANSACTION_TYPES = [
 
 export function FileUploader({ onConversionComplete }: FileUploaderProps) {
     const router = useRouter();
+    const { user, isAuthenticated } = useAuth();
     const [isDragging, setIsDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [transactionType, setTransactionType] = useState("850");
@@ -49,6 +52,13 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
     const [showEmailModal, setShowEmailModal] = useState(false);
     const [pendingDownload, setPendingDownload] = useState<{ url: string; filename: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Check if already authenticated
+    useEffect(() => {
+        if (isAuthenticated) {
+            setIsVerified(true);
+        }
+    }, [isAuthenticated]);
 
     const allowedExtensions = [".edi", ".txt", ".x12", ".dat"];
 
@@ -379,17 +389,36 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                         setShowEmailModal(false);
                         setPendingDownload(null);
                     }}
-                    onVerified={(email, token) => {
+                    onVerified={async (userData) => {
                         setIsVerified(true);
                         setShowEmailModal(false);
+
+                        // Save document to Supabase
+                        if (result && userData.userId) {
+                            try {
+                                await supabase.from("documents").insert({
+                                    user_id: userData.userId,
+                                    filename: file?.name || "unknown.edi",
+                                    transaction_type: result.transactionType,
+                                    transaction_name: result.transactionName,
+                                    transaction_count: result.transactionCount || 1,
+                                });
+                            } catch (err) {
+                                console.error("Failed to save document:", err);
+                            }
+                        }
+
                         // Process pending download
                         if (pendingDownload) {
                             performDownload(pendingDownload.url, pendingDownload.filename);
                             setPendingDownload(null);
                         }
-                        // Redirect to dashboard
-                        setTimeout(() => router.push('/dashboard'), 1000);
                     }}
+                    pendingDownload={pendingDownload ? () => {
+                        if (pendingDownload) {
+                            performDownload(pendingDownload.url, pendingDownload.filename);
+                        }
+                    } : undefined}
                 />
             </>
         );
@@ -527,16 +556,30 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                     setShowEmailModal(false);
                     setPendingDownload(null);
                 }}
-                onVerified={(email, token) => {
+                onVerified={async (userData) => {
                     setIsVerified(true);
                     setShowEmailModal(false);
+
+                    // Save document to Supabase if we have a result
+                    if (result && userData.userId) {
+                        try {
+                            await supabase.from("documents").insert({
+                                user_id: userData.userId,
+                                filename: file?.name || "unknown.edi",
+                                transaction_type: result.transactionType,
+                                transaction_name: result.transactionName,
+                                transaction_count: result.transactionCount || 1,
+                            });
+                        } catch (err) {
+                            console.error("Failed to save document:", err);
+                        }
+                    }
+
                     // Process pending download
                     if (pendingDownload) {
                         performDownload(pendingDownload.url, pendingDownload.filename);
                         setPendingDownload(null);
                     }
-                    // Redirect to dashboard
-                    setTimeout(() => router.push('/dashboard'), 1000);
                 }}
             />
         </div>

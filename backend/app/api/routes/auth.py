@@ -21,6 +21,8 @@ pending_conversions = {}
 
 class SendCodeRequest(BaseModel):
     email: EmailStr
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
 
 
 class VerifyCodeRequest(BaseModel):

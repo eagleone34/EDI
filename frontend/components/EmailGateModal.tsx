@@ -1,16 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, ArrowLeft, Loader2, X, CheckCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Mail, ArrowLeft, Loader2, X, CheckCircle, User } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 interface EmailGateModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onVerified: (email: string, token: string) => void;
+    onVerified: (userData: { email: string; token: string; userId: string; firstName: string; lastName: string }) => void;
+    pendingDownload?: () => void;
 }
 
-export function EmailGateModal({ isOpen, onClose, onVerified }: EmailGateModalProps) {
-    const [step, setStep] = useState<"email" | "code">("email");
+export function EmailGateModal({ isOpen, onClose, onVerified, pendingDownload }: EmailGateModalProps) {
+    const router = useRouter();
+    const { login } = useAuth();
+    const [step, setStep] = useState<"info" | "code">("info");
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
     const [loading, setLoading] = useState(false);
@@ -26,7 +33,11 @@ export function EmailGateModal({ isOpen, onClose, onVerified }: EmailGateModalPr
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://edi-production.up.railway.app'}/api/v1/auth/send-code`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({
+                    email,
+                    first_name: firstName,
+                    last_name: lastName,
+                }),
             });
 
             const data = await response.json();
@@ -66,8 +77,25 @@ export function EmailGateModal({ isOpen, onClose, onVerified }: EmailGateModalPr
                 throw new Error(data.detail || "Invalid code");
             }
 
-            // Success! Call callback with email and token
-            onVerified(email, data.token);
+            // Login the user via auth context
+            login(email, data.token, data.user_id);
+
+            // Trigger pending download if any
+            if (pendingDownload) {
+                pendingDownload();
+            }
+
+            // Call parent callback with user data
+            onVerified({
+                email,
+                token: data.token,
+                userId: data.user_id,
+                firstName,
+                lastName,
+            });
+
+            // Redirect to dashboard
+            router.push("/dashboard");
         } catch (err) {
             setError(err instanceof Error ? err.message : "Invalid code");
         } finally {
@@ -76,14 +104,16 @@ export function EmailGateModal({ isOpen, onClose, onVerified }: EmailGateModalPr
     };
 
     const handleBack = () => {
-        setStep("email");
+        setStep("info");
         setCode("");
         setError("");
         setDevCode(null);
     };
 
     const handleClose = () => {
-        setStep("email");
+        setStep("info");
+        setFirstName("");
+        setLastName("");
         setEmail("");
         setCode("");
         setError("");
@@ -111,25 +141,56 @@ export function EmailGateModal({ isOpen, onClose, onVerified }: EmailGateModalPr
                     <X className="w-5 h-5" />
                 </button>
 
-                {step === "email" ? (
+                {step === "info" ? (
                     <>
-                        {/* Email Step */}
+                        {/* Info Step - Name + Email */}
                         <div className="text-center mb-6">
                             <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                <Mail className="w-8 h-8 text-white" />
+                                <User className="w-8 h-8 text-white" />
                             </div>
                             <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                                Enter your email to download
+                                Create your account
                             </h2>
                             <p className="text-slate-600">
-                                We'll send a verification code to your email
+                                Enter your details to download your converted files
                             </p>
                         </div>
 
                         <form onSubmit={handleSendCode} className="space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label htmlFor="firstName" className="block text-sm font-medium text-slate-700 mb-1.5">
+                                        First name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="firstName"
+                                        value={firstName}
+                                        onChange={(e) => setFirstName(e.target.value)}
+                                        placeholder="John"
+                                        required
+                                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="lastName" className="block text-sm font-medium text-slate-700 mb-1.5">
+                                        Last name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="lastName"
+                                        value={lastName}
+                                        onChange={(e) => setLastName(e.target.value)}
+                                        placeholder="Doe"
+                                        required
+                                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                                    />
+                                </div>
+                            </div>
+
                             <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-                                    Email address
+                                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
+                                    Work email
                                 </label>
                                 <input
                                     type="email"
@@ -148,7 +209,7 @@ export function EmailGateModal({ isOpen, onClose, onVerified }: EmailGateModalPr
 
                             <button
                                 type="submit"
-                                disabled={loading || !email}
+                                disabled={loading || !email || !firstName || !lastName}
                                 className="w-full py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 {loading ? (
@@ -157,13 +218,16 @@ export function EmailGateModal({ isOpen, onClose, onVerified }: EmailGateModalPr
                                         Sending...
                                     </>
                                 ) : (
-                                    "Send Verification Code"
+                                    <>
+                                        <Mail className="w-5 h-5" />
+                                        Send Verification Code
+                                    </>
                                 )}
                             </button>
                         </form>
 
                         <p className="text-center text-xs text-slate-500 mt-4">
-                            Your files will be saved to your account
+                            Your converted files will be saved to your account
                         </p>
                     </>
                 ) : (
