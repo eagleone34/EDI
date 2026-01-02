@@ -178,7 +178,7 @@ async def auto_send_based_on_routes(request: EmailRouteCheckRequest):
                 
     except Exception as e:
         print(f"Error in auto-send: {e}")
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": f"{str(e)} (URL: {settings.SUPABASE_URL})"}
 
 
 @router.get("/health")
