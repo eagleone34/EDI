@@ -467,13 +467,6 @@ class PDFGenerator:
         h = document.header
         data = []
         
-        # Helper to add if exists
-        def add_row(label, value, color='#1e293b'):
-            if value:
-                return [Paragraph(f"<b>{label}:</b>", self.styles['InfoLabel']), 
-                        Paragraph(f"<b>{value}</b>", ParagraphStyle('Val', parent=self.styles['InfoValue'], textColor=colors.HexColor(color)))]
-            return None
-
         # Build fields list
         fields = [
             ("Date", h.get("adjustment_date")),
@@ -585,14 +578,22 @@ class PDFGenerator:
 
             # Create Table
             table = Table(data, colWidths=[0.8*inch, 2.2*inch, 0.8*inch, 2.2*inch])
-            table.setStyle(TableStyle([
+            
+            # Build style commands dynamically to avoid passing None
+            style_cmds = [
                 ('BACKGROUND', (0, 0), (-1, -1), colors.white),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                ('SPAN', (1, -2), (3, -2)) if part_str else None, # Span parts row
-                ('SPAN', (1, -1), (3, -1)) if item.get("message") else None, # Span message row
-            ]))
+            ]
+            
+            if part_str:
+                style_cmds.append(('SPAN', (1, -2), (3, -2)))
+            
+            if item.get("message"):
+                style_cmds.append(('SPAN', (1, -1), (3, -1)))
+            
+            table.setStyle(TableStyle(style_cmds))
             
             elements.append(table)
             elements.append(Spacer(1, 8)) # Space between items
