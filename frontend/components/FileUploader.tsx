@@ -164,6 +164,21 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
             setResult(apiResult);
             onConversionComplete?.(apiResult);
 
+            // Save document to Supabase for authenticated users
+            if (isAuthenticated && user?.id) {
+                try {
+                    await supabase.from("documents").insert({
+                        user_id: user.id,
+                        filename: file.name,
+                        transaction_type: apiResult.transactionType,
+                        transaction_name: apiResult.transactionName,
+                        transaction_count: apiResult.transactionCount || 1,
+                    });
+                } catch (err) {
+                    console.error("Failed to save document to database:", err);
+                }
+            }
+
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "An error occurred";
 

@@ -2,6 +2,7 @@
 
 import { Navbar } from "@/components/Navbar";
 import { FileUploader } from "@/components/FileUploader";
+import { SupportedTypes } from "@/components/SupportedTypes";
 import { Mail, FileText, Zap, Shield, Check, ArrowRight, Sparkles } from "lucide-react";
 
 export default function Home() {
@@ -56,25 +57,8 @@ export default function Home() {
                     <div className="max-w-2xl mx-auto">
                         <FileUploader />
 
-                        {/* Supported Types */}
-                        <div className="mt-6 text-center">
-                            <p className="text-xs text-slate-500 mb-3 font-medium">Supported Transaction Types</p>
-                            <div className="flex flex-wrap justify-center gap-2">
-                                {/* Current */}
-                                <span className="px-2.5 py-1 bg-primary-50 text-primary-700 rounded-md text-xs font-medium">850 PO</span>
-                                <span className="px-2.5 py-1 bg-primary-50 text-primary-700 rounded-md text-xs font-medium">810 Invoice</span>
-                                <span className="px-2.5 py-1 bg-primary-50 text-primary-700 rounded-md text-xs font-medium">812 Credit</span>
-                                <span className="px-2.5 py-1 bg-primary-50 text-primary-700 rounded-md text-xs font-medium">856 ASN</span>
-                                <span className="px-2.5 py-1 bg-primary-50 text-primary-700 rounded-md text-xs font-medium">855</span>
-                                <span className="px-2.5 py-1 bg-primary-50 text-primary-700 rounded-md text-xs font-medium">997</span>
-                                {/* Phase 2 */}
-                                <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-md text-xs font-medium">820</span>
-                                <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-md text-xs font-medium">860</span>
-                                <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-md text-xs font-medium">861</span>
-                                <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-md text-xs font-medium">870</span>
-                                <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-md text-xs font-medium">+5 more</span>
-                            </div>
-                        </div>
+                        {/* Supported Types - shared component */}
+                        <SupportedTypes className="mt-6 text-center" />
                     </div>
                 </div>
             </section>
