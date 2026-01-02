@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase, Document } from "@/lib/supabase";
-import { ChevronUp, ChevronDown, FileText, Eye, Download, Mail, MoreHorizontal, X } from "lucide-react";
+import { ChevronUp, ChevronDown, FileText, Eye, Download, Mail, MoreHorizontal, X, Trash2 } from "lucide-react";
 
 type SortField = "created_at" | "transaction_type" | "filename" | "trading_partner";
 type SortDirection = "asc" | "desc";
@@ -132,6 +132,8 @@ export default function TransactionsTable() {
             window.open(doc.html_url, "_blank");
         } else if (doc.pdf_url) {
             window.open(doc.pdf_url, "_blank");
+        } else {
+            alert("File preview not available for this archived item.");
         }
         setActiveActionMenu(null);
     };
@@ -142,8 +144,37 @@ export default function TransactionsTable() {
             link.href = doc.pdf_url;
             link.download = doc.filename.replace(/\.[^/.]+$/, "") + ".pdf";
             link.click();
+        } else {
+            alert("Download not available for this archived item.");
         }
         setActiveActionMenu(null);
+    };
+
+    const handleDelete = async (doc: Document) => {
+        if (!confirm("Are you sure you want to delete this conversion history?")) {
+            setActiveActionMenu(null);
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from("documents")
+                .delete()
+                .eq("id", doc.id);
+
+            if (error) {
+                console.error("Error deleting document:", error);
+                alert("Failed to delete document.");
+            } else {
+                // Optimistic update
+                setDocuments(prev => prev.filter(d => d.id !== doc.id));
+            }
+        } catch (err) {
+            console.error("Error deleting document:", err);
+            alert("An error occurred while deleting.");
+        } finally {
+            setActiveActionMenu(null);
+        }
     };
 
     const handleEmailClick = (doc: Document) => {
@@ -238,7 +269,7 @@ export default function TransactionsTable() {
                     <table className="w-full table-fixed text-left text-sm">
                         <thead>
                             <tr className="bg-slate-50 text-slate-500 font-medium">
-                                <th className="px-3 py-3 w-[10%]">Status</th>
+                                <th className="px-3 py-3 w-[8%]">Status</th>
                                 <th
                                     className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[12%]"
                                     onClick={() => handleSort("transaction_type")}
@@ -246,28 +277,28 @@ export default function TransactionsTable() {
                                     Type <SortIcon field="transaction_type" />
                                 </th>
                                 <th
-                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[18%]"
+                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[15%]"
                                     onClick={() => handleSort("trading_partner")}
                                 >
                                     Customer <SortIcon field="trading_partner" />
                                 </th>
                                 <th
-                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[30%]"
+                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[38%]"
                                     onClick={() => handleSort("filename")}
                                 >
                                     Filename <SortIcon field="filename" />
                                 </th>
                                 <th
-                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[18%]"
+                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[17%]"
                                     onClick={() => handleSort("created_at")}
                                 >
                                     Date <SortIcon field="created_at" />
                                 </th>
-                                <th className="px-3 py-3 text-center w-[12%]">Actions</th>
+                                <th className="px-3 py-3 text-center w-[10%]">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredAndSortedDocuments.map((doc) => (
+                            {filteredAndSortedDocuments.slice(0, 10).map((doc) => (
                                 <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-3 py-3">
                                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
@@ -329,6 +360,13 @@ export default function TransactionsTable() {
                                                             <Mail className="w-4 h-4" />
                                                             Email
                                                         </button>
+                                                        <button
+                                                            onClick={() => handleDelete(doc)}
+                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                            Delete
+                                                        </button>
                                                     </div>
                                                 )}
                                             </div>
@@ -357,7 +395,7 @@ export default function TransactionsTable() {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </div >
 
             {/* Email Modal */}
             {

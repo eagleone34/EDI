@@ -13,7 +13,8 @@ import {
     Eye,
     Mail,
     MoreHorizontal,
-    X
+    X,
+    Trash2
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase, Document } from "@/lib/supabase";
@@ -144,6 +145,8 @@ export default function HistoryPage() {
             window.open(doc.html_url, "_blank");
         } else if (doc.pdf_url) {
             window.open(doc.pdf_url, "_blank");
+        } else {
+            alert("File preview not available for this archived item.");
         }
         setActiveActionMenu(null);
     };
@@ -154,8 +157,37 @@ export default function HistoryPage() {
             link.href = doc.pdf_url;
             link.download = doc.filename.replace(/\.[^/.]+$/, "") + ".pdf";
             link.click();
+        } else {
+            alert("Download not available for this archived item.");
         }
         setActiveActionMenu(null);
+    };
+
+    const handleDelete = async (doc: Document) => {
+        if (!confirm("Are you sure you want to delete this conversion history?")) {
+            setActiveActionMenu(null);
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from("documents")
+                .delete()
+                .eq("id", doc.id);
+
+            if (error) {
+                console.error("Error deleting document:", error);
+                alert("Failed to delete document.");
+            } else {
+                // Optimistic update
+                setDocuments(prev => prev.filter(d => d.id !== doc.id));
+            }
+        } catch (err) {
+            console.error("Error deleting document:", err);
+            alert("An error occurred while deleting.");
+        } finally {
+            setActiveActionMenu(null);
+        }
     };
 
     const handleEmailClick = (doc: Document) => {
@@ -359,6 +391,13 @@ export default function HistoryPage() {
                                                         >
                                                             <Mail className="w-4 h-4" />
                                                             Email
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(doc)}
+                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                            Delete
                                                         </button>
                                                     </div>
                                                 )}
