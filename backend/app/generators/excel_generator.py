@@ -133,7 +133,10 @@ class ExcelGenerator:
             sheet_name = f"PO {idx} - {po_num}"[:31]
             
             ws = wb.create_sheet(sheet_name)
-            self._populate_document_sheet(ws, doc, idx, len(documents))
+            if doc.transaction_type == "812":
+                 self._populate_812_sheet(ws, doc, idx, len(documents))
+            else:
+                 self._populate_document_sheet(ws, doc, idx, len(documents))
         
         # Save to bytes
         output = BytesIO()
@@ -340,3 +343,140 @@ class ExcelGenerator:
         
         ws.column_dimensions["A"].width = 25
         ws.column_dimensions["B"].width = 30
+    def _populate_812_sheet(self, ws, document: EDIDocument, idx: int, total: int) -> None:
+        """Populate a worksheet with 812 Credit/Debit Adjustment data."""
+        po_num = document.header.get("credit_debit_number", "—")
+        
+        # Title
+        ws["A1"] = f"Credit/Debit Adjustment {idx} of {total} — Memo #{po_num}"
+        ws["A1"].font = Font(bold=True, size=14, color="1E40AF")
+        ws.merge_cells("A1:F1")
+        
+        # Document info section
+        ws["A3"] = "Adjustment Information"
+        ws["A3"].font = Font(bold=True, size=12)
+        
+        info_data = [
+            ("Date", document.header.get("adjustment_date", "—")),
+            ("Adj Number", document.header.get("credit_debit_number", "—")),
+            ("Handling Code", document.header.get("transaction_handling_desc", "—")),
+            ("Amount", document.header.get("amount", "—")),
+            ("Flag Code", document.header.get("credit_debit_flag_desc", "—")),
+            ("Invoice #", document.header.get("invoice_number", "—")),
+            ("PO Number", document.header.get("po_number", "—")),
+            ("Purpose", document.header.get("purpose_code", "—")),
+            ("Type", document.header.get("transaction_type_desc", "—")),
+            ("Currency", document.header.get("currency", "—")),
+        ]
+        
+        row = 4
+        # Format Amount in header
+        formatted_info = []
+        for label, val in info_data:
+            if label == "Amount" and val != "—":
+                try: val = f"${float(val):,.2f}"
+                except: pass
+            formatted_info.append((label, val))
+
+        for label, value in formatted_info:
+            ws[f"A{row}"] = label
+            ws[f"A{row}"].font = Font(bold=True, color="64748B")
+            ws[f"B{row}"] = str(value)
+            row += 1
+            
+        # Contacts
+        contacts = document.header.get("contacts", [])
+        if contacts:
+            row += 1
+            ws[f"A{row}"] = "Contacts"
+            ws[f"A{row}"].font = Font(bold=True)
+            row += 1
+            for c in contacts:
+                if c.get("name"):
+                    ws[f"A{row}"] = "Name"
+                    ws[f"B{row}"] = c["name"]
+                    row += 1
+                if c.get("comm_number"):
+                    ws[f"A{row}"] = "Tel"
+                    ws[f"B{row}"] = c["comm_number"]
+                    row += 1
+
+        # Parties
+        row += 1
+        ws[f"A{row}"] = "Parties"
+        ws[f"A{row}"].font = Font(bold=True, size=12)
+        row += 1
+        
+        for party in document.header.get("parties", []):
+            name = party.get("name", "—")
+            ptype = party.get("type", "")
+            ws[f"A{row}"] = ptype
+            ws[f"A{row}"].font = Font(bold=True, color="64748B")
+            ws[f"B{row}"] = name
+            row += 1
+
+        # Adjustment Details section
+        row += 1
+        ws[f"A{row}"] = f"Adjustment Details ({len(document.line_items)} items)"
+        ws[f"A{row}"].font = Font(bold=True, size=12)
+        row += 1
+        
+        if document.line_items:
+            # Headers
+            headers = ["Reason", "Flag", "Amount", "Quantity", "Unit Price", "Unit", "Parts", "Message"]
+            for col_idx, header in enumerate(headers, 1):
+                cell = ws.cell(row=row, column=col_idx, value=header)
+                cell.font = self.HEADER_FONT
+                cell.fill = self.HEADER_FILL
+                cell.alignment = self.HEADER_ALIGNMENT
+                cell.border = self.THIN_BORDER
+            row += 1
+            
+            # Data
+            for item in document.line_items:
+                # Format money fields
+                amt = item.get("adjustment_amount", "")
+                try: amt = f"${float(amt):,.2f}" if amt else ""
+                except: pass
+
+                price = item.get("unit_price", "")
+                try: price = f"${float(price):.2f}" if price else ""
+                except: pass
+                
+                # Format parts
+                parts = item.get("part_numbers", {})
+                parts_str = ", ".join([f"{k}:{v}" for k,v in parts.items()])
+
+                ws.cell(row=row, column=1, value=item.get("adjustment_reason", "")).border = self.THIN_BORDER
+                ws.cell(row=row, column=2, value=item.get("credit_debit_type", "")).border = self.THIN_BORDER
+                ws.cell(row=row, column=3, value=amt).border = self.THIN_BORDER
+                ws.cell(row=row, column=4, value=item.get("quantity", "")).border = self.THIN_BORDER
+                ws.cell(row=row, column=5, value=price).border = self.THIN_BORDER
+                ws.cell(row=row, column=6, value=item.get("unit", "")).border = self.THIN_BORDER
+                ws.cell(row=row, column=7, value=parts_str).border = self.THIN_BORDER
+                ws.cell(row=row, column=8, value=item.get("message", "")).border = self.THIN_BORDER
+                row += 1
+        
+        # Summary
+        row += 1
+        if document.summary:
+            ws[f"A{row}"] = "Summary"
+            ws[f"A{row}"].font = Font(bold=True, size=12)
+            row += 1
+            
+            total_amount = document.summary.get("total_amount") or document.summary.get("calculated_total")
+            if total_amount:
+                ws[f"A{row}"] = "Total Amount"
+                ws[f"A{row}"].font = Font(bold=True)
+                ws[f"B{row}"] = f"${total_amount:,.2f}"
+                ws[f"B{row}"].font = Font(bold=True, color="059669", size=14)
+        
+        # Column widths
+        ws.column_dimensions["A"].width = 25
+        ws.column_dimensions["B"].width = 25
+        ws.column_dimensions["C"].width = 15
+        ws.column_dimensions["D"].width = 10
+        ws.column_dimensions["E"].width = 12
+        ws.column_dimensions["F"].width = 10
+        ws.column_dimensions["G"].width = 30
+        ws.column_dimensions["H"].width = 40

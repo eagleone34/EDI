@@ -158,8 +158,8 @@ class PDFGenerator:
                 date_val = doc.header.get("po_date", "—")
             
             line_count = str(len(doc.line_items))
-            total = doc.summary.get("total_amount") or doc.summary.get("calculated_total")
-            total_str = f"${total:,.2f}" if isinstance(total, (int, float)) else "—"
+            total = doc.summary.get("total_amount") or doc.summary.get("calculated_total") or doc.header.get("amount")
+            total_str = f"${float(str(total).replace('$','').replace(',','')):,.2f}" if total else "—"
             data.append([id_val, date_val, line_count, total_str])
         
         table = Table(data, colWidths=[2*inch, 1.5*inch, 1*inch, 1.5*inch])
@@ -512,7 +512,9 @@ class PDFGenerator:
                     data.append([f"Contact: {c['name']}", f"Tel: {c.get('comm_number', '—')}"])
 
         # Styled Table (similar to Order Info)
-        table = Table(data, colWidths=[3.5*inch, 3.5*inch])
+        # Use auto width or manual fine tuning to prevent overlap
+        # 7.5 inch total printable width (8.5 - 0.5*2)
+        table = Table(data, colWidths=[3.7*inch, 3.7*inch])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1e40af')),
