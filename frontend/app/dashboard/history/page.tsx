@@ -260,130 +260,130 @@ export default function HistoryPage() {
                 </div>
 
                 {/* History Table */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full table-fixed">
-                            <thead className="bg-slate-50 border-b border-slate-100">
-                                <tr>
-                                    <th
-                                        className="text-left px-6 py-4 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[35%] min-w-[250px]"
-                                        onClick={() => handleSort("filename")}
-                                    >
-                                        File <SortIcon field="filename" />
-                                    </th>
-                                    <th
-                                        className="text-left px-4 py-4 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[12%] min-w-[90px]"
-                                        onClick={() => handleSort("transaction_type")}
-                                    >
-                                        Type <SortIcon field="transaction_type" />
-                                    </th>
-                                    <th
-                                        className="text-left px-4 py-4 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[20%] min-w-[120px]"
-                                        onClick={() => handleSort("trading_partner")}
-                                    >
-                                        Customer <SortIcon field="trading_partner" />
-                                    </th>
-                                    <th
-                                        className="text-left px-4 py-4 text-sm font-semibold text-slate-600 hidden md:table-cell cursor-pointer hover:text-slate-900 w-[18%] min-w-[120px]"
-                                        onClick={() => handleSort("created_at")}
-                                    >
-                                        Date <SortIcon field="created_at" />
-                                    </th>
-                                    <th className="text-center px-4 py-4 text-sm font-semibold text-slate-600 w-[15%] min-w-[80px]">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {filteredAndSortedDocuments.map((doc) => (
-                                    <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                    <FileText className="w-4 h-4 text-slate-500" />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="font-medium text-slate-900 truncate text-sm" title={doc.filename}>
-                                                        {doc.filename}
-                                                    </p>
-                                                    <p className="text-xs text-slate-400 truncate">{doc.transaction_name}</p>
-                                                </div>
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
+                    <table className="w-full table-fixed">
+                        <thead className="bg-slate-50 border-b border-slate-100">
+                            <tr>
+                                <th
+                                    className="text-left px-4 py-3 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[40%]"
+                                    onClick={() => handleSort("filename")}
+                                >
+                                    File <SortIcon field="filename" />
+                                </th>
+                                <th
+                                    className="text-left px-3 py-3 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[12%]"
+                                    onClick={() => handleSort("transaction_type")}
+                                >
+                                    Type <SortIcon field="transaction_type" />
+                                </th>
+                                <th
+                                    className="text-left px-3 py-3 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[18%]"
+                                    onClick={() => handleSort("trading_partner")}
+                                >
+                                    Customer <SortIcon field="trading_partner" />
+                                </th>
+                                <th
+                                    className="text-left px-3 py-3 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[20%]"
+                                    onClick={() => handleSort("created_at")}
+                                >
+                                    Date <SortIcon field="created_at" />
+                                </th>
+                                <th className="text-center px-3 py-3 text-sm font-semibold text-slate-600 w-[10%]">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {filteredAndSortedDocuments.map((doc) => (
+                                <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-4 py-3 overflow-hidden">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                <FileText className="w-4 h-4 text-slate-500" />
                                             </div>
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary-50 text-primary-700 whitespace-nowrap">
-                                                EDI {doc.transaction_type}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-4 text-sm text-slate-600 truncate max-w-[150px]">
+                                            <div className="overflow-hidden">
+                                                <p className="font-medium text-slate-900 truncate text-sm" title={doc.filename}>
+                                                    {doc.filename}
+                                                </p>
+                                                <p className="text-xs text-slate-400 truncate">{doc.transaction_name}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary-50 text-primary-700">
+                                            {doc.transaction_type}
+                                        </span>
+                                    </td>
+                                    <td className="px-3 py-3 overflow-hidden">
+                                        <p className="text-sm text-slate-600 truncate">
                                             {doc.trading_partner || <span className="text-slate-400">—</span>}
-                                        </td>
-                                        <td className="px-4 py-4 text-slate-500 hidden md:table-cell">
-                                            <div className="flex items-center gap-1.5 text-sm whitespace-nowrap">
-                                                <Calendar className="w-3.5 h-3.5" />
-                                                {formatDate(doc.created_at)}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <div className="flex items-center justify-center">
-                                                <div className="relative">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setActiveActionMenu(activeActionMenu === doc.id ? null : doc.id);
-                                                        }}
-                                                        className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                                                    >
-                                                        <MoreHorizontal className="w-4 h-4 text-slate-500" />
-                                                    </button>
+                                        </p>
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <div className="flex items-center gap-1 text-sm text-slate-500">
+                                            <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                                            <span className="truncate">{formatDate(doc.created_at)}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <div className="flex items-center justify-center">
+                                            <div className="relative">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveActionMenu(activeActionMenu === doc.id ? null : doc.id);
+                                                    }}
+                                                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                                >
+                                                    <MoreHorizontal className="w-4 h-4 text-slate-500" />
+                                                </button>
 
-                                                    {/* Action Dropdown */}
-                                                    {activeActionMenu === doc.id && (
-                                                        <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 min-w-[140px]">
-                                                            <button
-                                                                onClick={() => handleView(doc)}
-                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                                                            >
-                                                                <Eye className="w-4 h-4" />
-                                                                View
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDownload(doc)}
-                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                                                            >
-                                                                <Download className="w-4 h-4" />
-                                                                Download
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleEmailClick(doc)}
-                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                                                            >
-                                                                <Mail className="w-4 h-4" />
-                                                                Email
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                {/* Action Dropdown */}
+                                                {activeActionMenu === doc.id && (
+                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 min-w-[140px]">
+                                                        <button
+                                                            onClick={() => handleView(doc)}
+                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                            View
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDownload(doc)}
+                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                        >
+                                                            <Download className="w-4 h-4" />
+                                                            Download
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleEmailClick(doc)}
+                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                        >
+                                                            <Mail className="w-4 h-4" />
+                                                            Email
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {filteredAndSortedDocuments.length === 0 && (
-                        <div className="p-12 text-center text-slate-500">
-                            <FileText className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                            {documents.length === 0 ? (
-                                <>
-                                    <p className="font-medium">No conversions yet</p>
-                                    <p className="text-sm mt-1">Upload an EDI file on the dashboard to get started</p>
-                                </>
-                            ) : (
-                                <p>No conversions found matching your filters.</p>
-                            )}
-                        </div>
-                    )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
+
+                {filteredAndSortedDocuments.length === 0 && (
+                    <div className="p-12 text-center text-slate-500">
+                        <FileText className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+                        {documents.length === 0 ? (
+                            <>
+                                <p className="font-medium">No conversions yet</p>
+                                <p className="text-sm mt-1">Upload an EDI file on the dashboard to get started</p>
+                            </>
+                        ) : (
+                            <p>No conversions found matching your filters.</p>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Email Modal */}
