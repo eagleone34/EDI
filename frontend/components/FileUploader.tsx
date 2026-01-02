@@ -189,6 +189,38 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                         console.error("❌ Supabase insert error:", error);
                     } else {
                         console.log("✅ Document saved successfully:", data);
+
+                        // Trigger auto-send email if document saved
+                        if (data && data[0]) {
+                            try {
+                                const savedDoc = data[0];
+                                const getBase64 = (dataUrl?: string) => dataUrl ? dataUrl.split(",")[1] : undefined;
+                                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://edi-production.up.railway.app';
+
+                                console.log("📧 Triggering auto-email check for:", savedDoc.id);
+
+                                fetch(`${apiUrl}/api/v1/email/auto-send`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        user_id: user.id,
+                                        document_id: savedDoc.id,
+                                        filename: file.name,
+                                        transaction_type: apiResult.transactionType,
+                                        transaction_name: apiResult.transactionName,
+                                        trading_partner: apiResult.tradingPartner,
+                                        pdf_base64: getBase64(apiResult.downloads.pdf),
+                                        excel_base64: getBase64(apiResult.downloads.excel),
+                                    }),
+                                })
+                                    .then(res => res.json())
+                                    .then(res => console.log("📧 Auto-send result:", res))
+                                    .catch(err => console.error("📧 Auto-send trigger failed:", err));
+
+                            } catch (e) {
+                                console.error("Error preparing auto-email:", e);
+                            }
+                        }
                     }
                 } catch (err) {
                     console.error("❌ Failed to save document to database:", err);

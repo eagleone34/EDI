@@ -22,6 +22,7 @@ class SendEmailRequest(BaseModel):
     pdf_base64: Optional[str] = None
     excel_base64: Optional[str] = None
     trading_partner: Optional[str] = None
+    document_id: Optional[str] = None
 
 
 class EmailRouteCheckRequest(BaseModel):
@@ -33,6 +34,7 @@ class EmailRouteCheckRequest(BaseModel):
     pdf_base64: Optional[str] = None
     excel_base64: Optional[str] = None
     trading_partner: Optional[str] = None
+    document_id: Optional[str] = None
 
 
 @router.post("/send")
@@ -133,6 +135,35 @@ async def auto_send_based_on_routes(request: EmailRouteCheckRequest):
             )
             
             if result.get("success"):
+                # Log to Supabase
+                try:
+                    from datetime import datetime
+                    logs = []
+                    for route in routes:
+                        for email in route.get("email_addresses", []):
+                            logs.append({
+                                "user_id": request.user_id,
+                                "route_id": route.get("id"),
+                                "document_id": request.document_id,
+                                "recipient_email": email,
+                                "status": "sent",
+                                "sent_at": datetime.now().isoformat()
+                            })
+                    
+                    if logs:
+                        await client.post(
+                            f"{settings.SUPABASE_URL}/rest/v1/email_logs",
+                            headers={
+                                "apikey": settings.SUPABASE_SERVICE_KEY,
+                                "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                                "Content-Type": "application/json",
+                                "Prefer": "return=minimal"
+                            },
+                            json=logs
+                        )
+                except Exception as log_err:
+                    print(f"Failed to log emails: {log_err}")
+
                 return {
                     "status": "sent",
                     "message": f"Auto-sent to {len(all_recipients)} recipient(s)",

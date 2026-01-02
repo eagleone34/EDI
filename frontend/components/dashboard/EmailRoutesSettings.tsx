@@ -3,7 +3,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { Plus, Trash2, Mail, AlertCircle, Check, Loader2 } from "lucide-react";
+import { Plus, Trash2, Mail, AlertCircle, Check, Loader2, Edit2, Pencil, History } from "lucide-react";
+import EmailInput from "@/components/ui/EmailInput";
+import EmailHistoryModal from "./EmailHistoryModal";
 
 interface EmailRoute {
     id: string;
@@ -36,9 +38,15 @@ export default function EmailRoutesSettings() {
     const [success, setSuccess] = useState<string | null>(null);
 
     // New route form
+    // New route form
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [newType, setNewType] = useState("");
-    const [newEmails, setNewEmails] = useState("");
+    const [newEmails, setNewEmails] = useState<string[]>([]);
     const [showForm, setShowForm] = useState(false);
+
+    // History Modal
+    const [historyRouteId, setHistoryRouteId] = useState<string | null>(null);
+    const [showHistory, setShowHistory] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -89,58 +97,95 @@ export default function EmailRoutesSettings() {
         }
     };
 
-    const handleAddRoute = async () => {
-        if (!user?.id || !newEmails.trim()) return;
-
-        // Parse emails (comma or newline separated)
-        const emails = newEmails
-            .split(/[,\n]/)
-            .map(e => e.trim())
-            .filter(e => e && e.includes("@"));
-
-        if (emails.length === 0) {
+    const handleSaveRoute = async () => {
+        if (!user?.id || newEmails.length === 0) {
             setError("Please enter at least one valid email address");
             return;
         }
 
-        // Check if route for this type already exists
-        const existingRoute = routes.find(r => r.transaction_type === newType);
-        if (existingRoute) {
-            setError(`A route for ${newType} already exists. Delete it first or edit it.`);
-            return;
+        // Check if route for this type already exists (if adding new)
+        if (!editingId) {
+            const existingRoute = routes.find(r => r.transaction_type === newType);
+            if (existingRoute) {
+                setError(`A route for ${newType} already exists. Delete it first or edit it.`);
+                return;
+            }
         }
 
         setSaving(true);
         setError(null);
 
         try {
-            const { data, error } = await supabase
-                .from("email_routes")
-                .insert({
-                    user_id: user.id,
-                    transaction_type: newType,
-                    email_addresses: emails,
-                    is_active: true,
-                })
-                .select()
-                .single();
+            if (editingId) {
+                // Update existing route
+                const { data, error } = await supabase
+                    .from("email_routes")
+                    .update({
+                        transaction_type: newType,
+                        email_addresses: newEmails,
+                    })
+                    .eq("id", editingId)
+                    .select()
+                    .single();
 
-            if (error) {
-                console.error("Error adding route:", error);
-                setError("Failed to add email route");
+                if (error) {
+                    console.error("Error updating route:", error);
+                    setError("Failed to update email route");
+                } else {
+                    setRoutes(routes.map(r => r.id === editingId ? data : r));
+                    handleCancelForm();
+                    setSuccess("Email route updated successfully!");
+                }
             } else {
-                setRoutes([...routes, data]);
-                setNewEmails("");
-                setShowForm(false);
-                setSuccess("Email route added successfully!");
-                setTimeout(() => setSuccess(null), 3000);
+                // Insert new route
+                const { data, error } = await supabase
+                    .from("email_routes")
+                    .insert({
+                        user_id: user.id,
+                        transaction_type: newType,
+                        email_addresses: newEmails,
+                        is_active: true,
+                    })
+                    .select()
+                    .single();
+
+                if (error) {
+                    console.error("Error adding route:", error);
+                    setError("Failed to add email route");
+                } else {
+                    setRoutes([...routes, data]);
+                    handleCancelForm();
+                    setSuccess("Email route added successfully!");
+                }
             }
+            setTimeout(() => setSuccess(null), 3000);
         } catch (err) {
-            console.error("Failed to add route:", err);
-            setError("Failed to add email route");
+            console.error("Failed to save route:", err);
+            setError("Failed to save email route");
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleEditRoute = (route: EmailRoute) => {
+        setEditingId(route.id);
+        setNewType(route.transaction_type);
+        setNewEmails(route.email_addresses);
+        setShowForm(true);
+        setError(null);
+    };
+
+    const handleViewHistory = (routeId: string) => {
+        setHistoryRouteId(routeId);
+        setShowHistory(true);
+    };
+
+    const handleCancelForm = () => {
+        setEditingId(null);
+        setNewType(userDocumentTypes[0] || "");
+        setNewEmails([]);
+        setShowForm(false);
+        setError(null);
     };
 
     const handleDeleteRoute = async (id: string) => {
@@ -211,7 +256,10 @@ export default function EmailRoutesSettings() {
                         </div>
                     </div>
                     <button
-                        onClick={() => setShowForm(!showForm)}
+                        onClick={() => {
+                            handleCancelForm();
+                            setShowForm(!showForm);
+                        }}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                     >
                         <Plus className="w-4 h-4" />
@@ -263,12 +311,10 @@ export default function EmailRoutesSettings() {
                             <label className="block text-sm font-medium text-slate-700 mb-1">
                                 Email Addresses
                             </label>
-                            <textarea
+                            <EmailInput
                                 value={newEmails}
-                                onChange={(e) => setNewEmails(e.target.value)}
-                                placeholder="Enter email addresses, separated by commas or new lines"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                                rows={3}
+                                onChange={setNewEmails}
+                                placeholder="Enter email address (Press Enter to add)"
                             />
                             <p className="text-xs text-slate-500 mt-1">
                                 All converted {getTypeName(newType)} documents will be emailed to these addresses.
@@ -276,17 +322,14 @@ export default function EmailRoutesSettings() {
                         </div>
                         <div className="flex gap-2">
                             <button
-                                onClick={handleAddRoute}
-                                disabled={saving || !newEmails.trim()}
+                                onClick={handleSaveRoute}
+                                disabled={saving || newEmails.length === 0}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
                             >
-                                {saving ? "Adding..." : "Add Route"}
+                                {saving ? "Saving..." : (editingId ? "Update Route" : "Add Route")}
                             </button>
                             <button
-                                onClick={() => {
-                                    setShowForm(false);
-                                    setNewEmails("");
-                                }}
+                                onClick={handleCancelForm}
                                 className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors text-sm"
                             >
                                 Cancel
@@ -336,8 +379,23 @@ export default function EmailRoutesSettings() {
                                     {route.is_active ? "Pause" : "Resume"}
                                 </button>
                                 <button
+                                    onClick={() => handleViewHistory(route.id)}
+                                    className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+                                    title="View History"
+                                >
+                                    <History className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => handleEditRoute(route)}
+                                    className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+                                    title="Edit Rule"
+                                >
+                                    <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
                                     onClick={() => handleDeleteRoute(route.id)}
                                     className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Delete Rule"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
@@ -346,6 +404,11 @@ export default function EmailRoutesSettings() {
                     ))
                 )}
             </div>
+            <EmailHistoryModal
+                isOpen={showHistory}
+                onClose={() => setShowHistory(false)}
+                routeId={historyRouteId}
+            />
         </div>
     );
 }
