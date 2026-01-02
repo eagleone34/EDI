@@ -17,6 +17,11 @@ interface ConversionResult {
         excel?: string;
         html?: string;
     };
+    // Smart detection fields
+    detectedType?: string;
+    selectedType?: string;
+    typeMismatch?: boolean;
+    warning?: string;
 }
 
 interface FileUploaderProps {
@@ -26,6 +31,7 @@ interface FileUploaderProps {
 const TRANSACTION_TYPES = [
     { code: "850", name: "Purchase Order" },
     { code: "810", name: "Invoice" },
+    { code: "812", name: "Credit/Debit Adjustment" },
     { code: "856", name: "Advance Ship Notice (ASN)" },
     { code: "855", name: "Purchase Order Acknowledgment" },
     { code: "997", name: "Functional Acknowledgment" },
@@ -138,6 +144,11 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                     excel: data.outputs?.excel ? `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${data.outputs.excel}` : undefined,
                     html: data.outputs?.html ? `data:text/html;base64,${data.outputs.html}` : undefined,
                 },
+                // Smart detection info
+                detectedType: data.detectedType,
+                selectedType: data.selectedType,
+                typeMismatch: data.typeMismatch,
+                warning: data.warning,
             };
 
             setResult(apiResult);
@@ -169,6 +180,9 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
         if (filename.includes("810") || filename.includes("invoice")) {
             transactionType = "810";
             transactionName = "Invoice";
+        } else if (filename.includes("812") || filename.includes("credit") || filename.includes("debit") || filename.includes("adjustment")) {
+            transactionType = "812";
+            transactionName = "Credit/Debit Adjustment";
         } else if (filename.includes("856") || filename.includes("asn") || filename.includes("ship")) {
             transactionType = "856";
             transactionName = "Advance Ship Notice";
@@ -296,9 +310,19 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
                                 🎭 Demo Mode - Backend not connected
                             </div>
                         )}
+                        {/* Type mismatch warning */}
+                        {result.typeMismatch && result.warning && (
+                            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 max-w-lg mx-auto">
+                                <span className="text-lg">⚠️</span>
+                                <div className="text-left">
+                                    <p className="font-medium text-amber-800">Document Type Auto-Corrected</p>
+                                    <p className="text-sm text-amber-700 mt-1">{result.warning}</p>
+                                </div>
+                            </div>
+                        )}
                         {(result.transactionCount ?? 1) > 1 && (
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
-                                📦 Found {result.transactionCount} Purchase Orders in this file
+                                📦 Found {result.transactionCount} {result.transactionName}s in this file
                             </div>
                         )}
                         <p className="text-slate-600 mb-6">

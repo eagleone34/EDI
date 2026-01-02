@@ -64,7 +64,7 @@ async def convert_edi_file(
             )
     
     # Validate transaction type
-    allowed_types = ["850", "810", "856", "855", "997"]
+    allowed_types = ["850", "810", "812", "856", "855", "997"]
     if transaction_type not in allowed_types:
         raise HTTPException(
             status_code=400,
@@ -76,13 +76,35 @@ async def convert_edi_file(
         content = await file.read()
         content_str = content.decode("utf-8", errors="ignore")
         
-        # Get parser for transaction type
-        parser = get_parser(transaction_type)
+        # SMART DETECTION: Auto-detect the actual document type from the file
+        detected_type = detect_transaction_type(content_str)
+        type_mismatch = detected_type != transaction_type
+        warning_message = None
+        
+        # If mismatch detected, use the CORRECT parser automatically
+        actual_type = detected_type if detected_type in allowed_types else transaction_type
+        
+        if type_mismatch and detected_type in allowed_types:
+            warning_message = (
+                f"Document type mismatch detected! You selected {transaction_type}, "
+                f"but the file contains {detected_type} documents. "
+                f"We've automatically processed it as {detected_type} for accurate results."
+            )
+        elif type_mismatch:
+            # Detected type not supported, fall back to user selection
+            actual_type = transaction_type
+            warning_message = (
+                f"Could not auto-detect a supported document type. "
+                f"Processing as {transaction_type} as selected."
+            )
+        
+        # Get parser for the ACTUAL transaction type (auto-corrected if needed)
+        parser = get_parser(actual_type)
         
         if not parser:
             raise HTTPException(
                 status_code=422,
-                detail=f"Unsupported EDI transaction type: {transaction_type}"
+                detail=f"Unsupported EDI transaction type: {actual_type}"
             )
         
         # Parse ALL transaction sets from the file
@@ -126,23 +148,34 @@ async def convert_edi_file(
                 "lineItems": line_count,
             })
         
+        # Build response with mismatch detection info
+        response_content = {
+            "id": f"conv_{int(time.time() * 1000)}",
+            "status": "success",
+            "transactionType": documents[0].transaction_type,
+            "transactionName": documents[0].transaction_name,
+            "transactionCount": len(documents),
+            "documents": doc_summaries,
+            "processingTime": processing_time,
+            "filename": file.filename,
+            "outputs": outputs,
+            "downloads": {
+                fmt: f"/api/v1/convert/download?data={outputs[fmt][:50]}...&format={fmt}"
+                for fmt in outputs.keys()
+            },
+            # Smart detection info
+            "detectedType": detected_type,
+            "selectedType": transaction_type,
+            "typeMismatch": type_mismatch,
+        }
+        
+        # Add warning if there was a mismatch
+        if warning_message:
+            response_content["warning"] = warning_message
+        
         return JSONResponse(
             status_code=200,
-            content={
-                "id": f"conv_{int(time.time() * 1000)}",
-                "status": "success",
-                "transactionType": documents[0].transaction_type,
-                "transactionName": documents[0].transaction_name,
-                "transactionCount": len(documents),
-                "documents": doc_summaries,
-                "processingTime": processing_time,
-                "filename": file.filename,
-                "outputs": outputs,
-                "downloads": {
-                    fmt: f"/api/v1/convert/download?data={outputs[fmt][:50]}...&format={fmt}"
-                    for fmt in outputs.keys()
-                }
-            }
+            content=response_content
         )
         
     except HTTPException:
