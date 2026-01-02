@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Mail, Menu, X } from "lucide-react";
+import { Mail, Menu, X, User, LogOut } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 export function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const { user, isLoading, logout, isAuthenticated } = useAuth();
 
     useEffect(() => {
         const handleScroll = () => {
@@ -60,20 +62,43 @@ export function Navbar() {
                         </Link>
                     </div>
 
-                    {/* CTA Buttons */}
+                    {/* CTA Buttons - Auth Aware */}
                     <div className="hidden md:flex items-center gap-4">
-                        <Link
-                            href="/auth/login"
-                            className="text-slate-600 hover:text-primary-600 transition-colors font-medium"
-                        >
-                            Login
-                        </Link>
-                        <Link
-                            href="/auth/signup"
-                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-                        >
-                            Get Started Free
-                        </Link>
+                        {isLoading ? (
+                            <div className="w-20 h-8 bg-slate-100 animate-pulse rounded-lg"></div>
+                        ) : isAuthenticated ? (
+                            <>
+                                <Link
+                                    href="/dashboard"
+                                    className="flex items-center gap-2 text-slate-600 hover:text-primary-600 transition-colors font-medium"
+                                >
+                                    <User className="w-4 h-4" />
+                                    Dashboard
+                                </Link>
+                                <button
+                                    onClick={logout}
+                                    className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-red-600 transition-colors font-medium"
+                                >
+                                    <LogOut className="w-4 h-4" />
+                                    Logout
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    href="/login"
+                                    className="text-slate-600 hover:text-primary-600 transition-colors font-medium"
+                                >
+                                    Login
+                                </Link>
+                                <Link
+                                    href="/login"
+                                    className="px-5 py-2.5 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                                >
+                                    Get Started Free
+                                </Link>
+                            </>
+                        )}
                     </div>
 
                     {/* Mobile Menu Button */}
@@ -115,18 +140,43 @@ export function Navbar() {
                                 How it Works
                             </Link>
                             <div className="pt-4 border-t border-slate-100 flex flex-col gap-3">
-                                <Link
-                                    href="/auth/login"
-                                    className="text-center py-2 text-slate-600 hover:text-primary-600 transition-colors font-medium"
-                                >
-                                    Login
-                                </Link>
-                                <Link
-                                    href="/auth/signup"
-                                    className="text-center py-3 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-colors"
-                                >
-                                    Get Started Free
-                                </Link>
+                                {isAuthenticated ? (
+                                    <>
+                                        <Link
+                                            href="/dashboard"
+                                            className="text-center py-2 text-slate-600 hover:text-primary-600 transition-colors font-medium"
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                        >
+                                            Dashboard
+                                        </Link>
+                                        <button
+                                            onClick={() => {
+                                                logout();
+                                                setIsMobileMenuOpen(false);
+                                            }}
+                                            className="text-center py-3 bg-red-50 text-red-600 rounded-lg font-semibold hover:bg-red-100 transition-colors"
+                                        >
+                                            Logout
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Link
+                                            href="/login"
+                                            className="text-center py-2 text-slate-600 hover:text-primary-600 transition-colors font-medium"
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                        >
+                                            Login
+                                        </Link>
+                                        <Link
+                                            href="/login"
+                                            className="text-center py-3 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-colors"
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                        >
+                                            Get Started Free
+                                        </Link>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>

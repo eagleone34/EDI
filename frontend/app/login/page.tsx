@@ -4,9 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Mail, ArrowRight, Loader2, CheckCircle, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 export default function LoginPage() {
     const router = useRouter();
+    const { login } = useAuth();
     const [step, setStep] = useState<"email" | "code">("email");
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
@@ -65,10 +67,8 @@ export default function LoginPage() {
                 throw new Error(data.detail || "Invalid code");
             }
 
-            // Store auth info in localStorage
-            localStorage.setItem("user_email", email);
-            localStorage.setItem("user_token", data.token);
-            localStorage.setItem("user_id", data.user_id);
+            // Use auth context login function
+            login(email, data.token, data.user_id);
 
             // Redirect to dashboard
             router.push("/dashboard");

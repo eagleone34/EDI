@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import { useEffect } from "react";
+import { LogOut, Loader2 } from "lucide-react";
 
 export default function DashboardLayout({
     children,
@@ -9,12 +12,39 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const router = useRouter();
+    const { user, isLoading, isAuthenticated, logout } = useAuth();
+
+    // Redirect to login if not authenticated
+    useEffect(() => {
+        if (!isLoading && !isAuthenticated) {
+            router.push("/login");
+        }
+    }, [isLoading, isAuthenticated, router]);
 
     const menuItems = [
         { name: "Overview", href: "/dashboard", icon: "📊" },
-        { name: "Transactions", href: "/dashboard/transactions", icon: "📝" },
+        { name: "History", href: "/dashboard/history", icon: "📝" },
         { name: "Settings", href: "/dashboard/settings", icon: "⚙️" },
     ];
+
+    // Show loading while checking auth
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+        );
+    }
+
+    // Don't render if not authenticated (redirect will happen)
+    if (!isAuthenticated) {
+        return null;
+    }
+
+    // Get user display name from email
+    const displayName = user?.email?.split("@")[0] || "User";
+    const initials = displayName.slice(0, 2).toUpperCase();
 
     return (
         <div className="min-h-screen bg-slate-50 flex">
@@ -39,8 +69,8 @@ export default function DashboardLayout({
                                 key={item.name}
                                 href={item.href}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive
-                                        ? "bg-blue-50 text-blue-700"
-                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                    ? "bg-blue-50 text-blue-700"
+                                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                                     }`}
                             >
                                 <span className="text-lg">{item.icon}</span>
@@ -50,16 +80,24 @@ export default function DashboardLayout({
                     })}
                 </nav>
 
+                {/* User Section with Logout */}
                 <div className="p-4 border-t border-slate-100">
-                    <div className="flex items-center gap-3 px-4 py-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs">
-                            MA
+                    <div className="flex items-center gap-3 px-4 py-3 mb-2">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
+                            {initials}
                         </div>
                         <div className="flex-1 overflow-hidden">
-                            <p className="text-sm font-medium text-slate-900 truncate">Mazen</p>
-                            <p className="text-xs text-slate-500 truncate">Free Plan</p>
+                            <p className="text-sm font-medium text-slate-900 truncate">{displayName}</p>
+                            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
                         </div>
                     </div>
+                    <button
+                        onClick={logout}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        Sign Out
+                    </button>
                 </div>
             </aside>
 
