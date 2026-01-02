@@ -199,8 +199,7 @@ export default function TransactionsTable() {
                     transaction_type: emailModal.doc.transaction_type,
                     transaction_name: emailModal.doc.transaction_name || emailModal.doc.transaction_type,
                     trading_partner: emailModal.doc.trading_partner,
-                    // Note: PDF/Excel base64 not stored in Supabase, would need to re-convert
-                    // For now, email sent without attachments as document reference
+                    document_id: emailModal.doc.id,
                 }),
             });
 

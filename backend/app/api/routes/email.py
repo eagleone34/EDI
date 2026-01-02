@@ -52,6 +52,30 @@ async def send_email(request: SendEmailRequest):
         if not email or "@" not in email:
             raise HTTPException(status_code=400, detail=f"Invalid email: {email}")
     
+    # If base64 missing but ID provided, try to fetch from DB
+    if not request.pdf_base64 and request.document_id and settings.SUPABASE_URL:
+        try:
+            async with httpx.AsyncClient() as client:
+                doc_resp = await client.get(
+                    f"{settings.SUPABASE_URL}/rest/v1/documents",
+                    headers={
+                        "apikey": settings.SUPABASE_SERVICE_KEY,
+                        "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                    },
+                    params={"id": f"eq.{request.document_id}", "select": "pdf_url,excel_url"}
+                )
+                if doc_resp.status_code == 200:
+                    docs = doc_resp.json()
+                    if docs and docs[0]:
+                        doc = docs[0]
+                        # Extract base64 from Data URL if present (e.g. data:application/pdf;base64,...)
+                        if doc.get("pdf_url") and "base64," in doc["pdf_url"]:
+                            request.pdf_base64 = doc["pdf_url"].split("base64,")[1]
+                        if doc.get("excel_url") and "base64," in doc["excel_url"]:
+                            request.excel_base64 = doc["excel_url"].split("base64,")[1]
+        except Exception as e:
+            print(f"Failed to fetch document content: {e}")
+
     result = email_service.send_converted_document(
         to_emails=request.to_emails,
         filename=request.filename,
@@ -97,7 +121,7 @@ async def auto_send_based_on_routes(request: EmailRouteCheckRequest):
                     "user_id": f"eq.{request.user_id}",
                     "transaction_type": f"eq.{request.transaction_type}",
                     "is_active": "eq.true",
-                    "select": "email_addresses",
+                    "select": "id,email_addresses",
                 },
             )
             
