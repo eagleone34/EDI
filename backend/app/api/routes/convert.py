@@ -217,6 +217,9 @@ def generate_combined_output(documents: list, generator) -> bytes:
     return b""
 
 
+from app.services.layout_service import LayoutService
+from app.generators.dynamic_generator import DynamicGenerator
+
 def generate_combined_html(documents: list, generator: HTMLGenerator) -> bytes:
     """Generate combined HTML for all documents with premium styling."""
     if not documents:
@@ -227,6 +230,9 @@ def generate_combined_html(documents: list, generator: HTMLGenerator) -> bytes:
     # Get dynamic names from first document
     trans_name = documents[0].transaction_name
     trans_type = documents[0].transaction_type
+    
+    # Try to fetch dynamic layout config
+    layout_config = LayoutService.get_active_layout(trans_type)
     
     # Full premium CSS (same as single doc generator)
     css = """
@@ -274,6 +280,11 @@ def generate_combined_html(documents: list, generator: HTMLGenerator) -> bytes:
         .summary-card.total .summary-value { color: white; }
         .footer { text-align: center; padding: 24px; color: rgba(255,255,255,0.8); font-size: 12px; }
         .footer a { color: white; text-decoration: none; font-weight: 600; }
+        .fields-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 24px; }
+        .label { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+        .value { font-size: 14px; font-weight: 500; color: #0f172a; }
+        .style-bold { font-weight: 700; }
+        .style-highlight { color: #2563eb; font-weight: 600; }
         @media print { body { background: white; } .document-card { box-shadow: none; border: 1px solid #e2e8f0; } }
     """
     
@@ -314,23 +325,31 @@ def generate_combined_html(documents: list, generator: HTMLGenerator) -> bytes:
         <div class="doc-content">
 """)
         
-        # Order Information section
-        html_parts.append(build_order_info_section(doc))
-        
-        # Parties section
-        html_parts.append(build_parties_section(doc))
-        
-        # Dates section
-        html_parts.append(build_dates_section(doc))
-        
-        # Terms section (Payment Terms, FOB)
-        html_parts.append(build_terms_section(doc))
-        
-        # Line Items table
-        html_parts.append(build_line_items_section(doc))
-        
-        # Summary section
-        html_parts.append(build_summary_section(doc))
+        # Check if we have a dynamic layout for this type
+        if layout_config:
+            # Use data-driven generator
+            dynamic_gen = DynamicGenerator(layout_config)
+            html_parts.append(dynamic_gen.render_content(doc))
+        else:
+            # Fallback to hardcoded legacy sections
+            
+            # Order Information section
+            html_parts.append(build_order_info_section(doc))
+            
+            # Parties section
+            html_parts.append(build_parties_section(doc))
+            
+            # Dates section
+            html_parts.append(build_dates_section(doc))
+            
+            # Terms section (Payment Terms, FOB)
+            html_parts.append(build_terms_section(doc))
+            
+            # Line Items table
+            html_parts.append(build_line_items_section(doc))
+            
+            # Summary section
+            html_parts.append(build_summary_section(doc))
         
         html_parts.append("""        </div>
     </div>
