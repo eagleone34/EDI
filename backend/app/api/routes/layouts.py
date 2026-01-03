@@ -495,3 +495,169 @@ async def restore_default_layout(type_code: str, user_id: Optional[str] = None):
         if conn:
             conn.close()
 
+
+@router.get("/admin/diagnostic")
+async def diagnostic_layouts():
+    """
+    Diagnostic endpoint to identify duplicate layout entries.
+    Returns information about duplicates in both transaction_types and layout_versions.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        
+        results = {
+            "transaction_types_duplicates": [],
+            "layout_versions_duplicates": [],
+            "all_layout_versions": []
+        }
+        
+        # Check for duplicate transaction_types
+        cur.execute("""
+            SELECT code, COUNT(*) as count 
+            FROM transaction_types 
+            GROUP BY code 
+            HAVING COUNT(*) > 1
+        """)
+        for row in cur.fetchall():
+            results["transaction_types_duplicates"].append({
+                "code": row['code'],
+                "count": row['count']
+            })
+        
+        # Check for duplicate layout_versions per type (system defaults)
+        cur.execute("""
+            SELECT transaction_type_code, 
+                   COALESCE(user_id::text, 'SYSTEM') as user_scope,
+                   COUNT(*) as count,
+                   array_agg(id::text) as ids,
+                   array_agg(status) as statuses,
+                   array_agg(version_number) as versions
+            FROM layout_versions 
+            GROUP BY transaction_type_code, user_id
+            HAVING COUNT(*) > 1
+        """)
+        for row in cur.fetchall():
+            results["layout_versions_duplicates"].append({
+                "type_code": row['transaction_type_code'],
+                "user_scope": row['user_scope'],
+                "count": row['count'],
+                "ids": row['ids'],
+                "statuses": row['statuses'],
+                "versions": row['versions']
+            })
+        
+        # Get all layout_versions for reference
+        cur.execute("""
+            SELECT id, transaction_type_code, version_number, status, is_active,
+                   COALESCE(user_id::text, 'SYSTEM') as user_scope,
+                   updated_at
+            FROM layout_versions 
+            ORDER BY transaction_type_code, user_scope, version_number DESC
+        """)
+        for row in cur.fetchall():
+            results["all_layout_versions"].append({
+                "id": str(row['id']),
+                "type_code": row['transaction_type_code'],
+                "version": row['version_number'],
+                "status": row['status'],
+                "is_active": row['is_active'],
+                "user_scope": row['user_scope'],
+                "updated_at": str(row['updated_at']) if row['updated_at'] else None
+            })
+        
+        return results
+        
+    except Exception as e:
+        print(f"Error in diagnostic: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
+@router.post("/admin/cleanup")
+async def cleanup_layouts():
+    """
+    Clean up duplicate layout entries.
+    - Removes duplicate layout_versions, keeping only the most recent per type/user
+    - Fixes any incorrect status values
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        
+        cleanup_results = {
+            "deleted_count": 0,
+            "deleted_ids": [],
+            "fixed_status_count": 0
+        }
+        
+        # Find and delete duplicates, keeping the one with highest version_number
+        # For each (transaction_type_code, user_id) combination, keep only one row
+        cur.execute("""
+            WITH ranked AS (
+                SELECT id, 
+                       ROW_NUMBER() OVER (
+                           PARTITION BY transaction_type_code, COALESCE(user_id::text, 'SYSTEM')
+                           ORDER BY version_number DESC, updated_at DESC NULLS LAST
+                       ) as rn
+                FROM layout_versions
+            )
+            SELECT id FROM ranked WHERE rn > 1
+        """)
+        
+        duplicates = cur.fetchall()
+        
+        if duplicates:
+            duplicate_ids = [str(row['id']) for row in duplicates]
+            cleanup_results["deleted_ids"] = duplicate_ids
+            
+            # Delete the duplicates
+            cur.execute("""
+                DELETE FROM layout_versions 
+                WHERE id = ANY(%s::uuid[])
+            """, (duplicate_ids,))
+            
+            cleanup_results["deleted_count"] = len(duplicate_ids)
+        
+        # Fix any layouts that are ARCHIVED but should be PRODUCTION
+        # Set the latest version for each type (where user_id IS NULL) to PRODUCTION if all are ARCHIVED
+        cur.execute("""
+            WITH latest AS (
+                SELECT DISTINCT ON (transaction_type_code)
+                       id, transaction_type_code, status
+                FROM layout_versions
+                WHERE user_id IS NULL
+                ORDER BY transaction_type_code, version_number DESC
+            )
+            UPDATE layout_versions lv
+            SET status = 'PRODUCTION', is_active = true
+            FROM latest l
+            WHERE lv.id = l.id 
+              AND l.status = 'ARCHIVED'
+            RETURNING lv.id
+        """)
+        fixed = cur.fetchall()
+        cleanup_results["fixed_status_count"] = len(fixed) if fixed else 0
+        
+        conn.commit()
+        
+        return {
+            "success": True,
+            "message": f"Cleanup complete. Deleted {cleanup_results['deleted_count']} duplicates. Fixed {cleanup_results['fixed_status_count']} status issues.",
+            "details": cleanup_results
+        }
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Error in cleanup: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
