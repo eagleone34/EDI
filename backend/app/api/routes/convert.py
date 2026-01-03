@@ -24,6 +24,7 @@ async def convert_edi_file(
     file: UploadFile = File(...),
     formats: str = Form(default="pdf"),
     transaction_type: str = Form(default="850"),
+    user_id: Optional[str] = Form(default=None),
 ):
     """
     Convert an EDI file to the specified formats.
@@ -120,9 +121,10 @@ async def convert_edi_file(
         outputs = {}
         
         # Fetch dynamic layout config once for all formats
+        # Pass user_id so users get their own layout if they have one
         from app.services.layout_service import LayoutService
         from app.generators.dynamic_generator import DynamicGenerator
-        layout_config = LayoutService.get_active_layout(actual_type)
+        layout_config = LayoutService.get_active_layout(actual_type, user_id)
         
         if "pdf" in format_list:
             if layout_config:
@@ -148,7 +150,7 @@ async def convert_edi_file(
         
         if "html" in format_list:
             html_gen = HTMLGenerator()
-            combined_html = generate_combined_html(documents, html_gen)
+            combined_html = generate_combined_html(documents, html_gen, user_id)
             outputs["html"] = base64.b64encode(combined_html).decode("utf-8")
         
         processing_time = (time.time() - start_time) * 1000  # ms
@@ -235,7 +237,7 @@ def generate_combined_output(documents: list, generator) -> bytes:
 from app.services.layout_service import LayoutService
 from app.generators.dynamic_generator import DynamicGenerator
 
-def generate_combined_html(documents: list, generator: HTMLGenerator) -> bytes:
+def generate_combined_html(documents: list, generator: HTMLGenerator, user_id: Optional[str] = None) -> bytes:
     """Generate combined HTML for all documents with premium styling."""
     if not documents:
         return b""
@@ -246,8 +248,8 @@ def generate_combined_html(documents: list, generator: HTMLGenerator) -> bytes:
     trans_name = documents[0].transaction_name
     trans_type = documents[0].transaction_type
     
-    # Try to fetch dynamic layout config
-    layout_config = LayoutService.get_active_layout(trans_type)
+    # Try to fetch dynamic layout config (user-specific if user_id provided, else SYSTEM)
+    layout_config = LayoutService.get_active_layout(trans_type, user_id)
     
     # Full premium CSS (same as single doc generator)
     css = """
