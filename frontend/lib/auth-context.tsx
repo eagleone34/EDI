@@ -7,6 +7,9 @@ import { User, Session } from "@supabase/supabase-js";
 // Lazy import supabase to avoid SSR issues
 let supabaseClient: ReturnType<typeof import("@supabase/supabase-js").createClient> | null = null;
 
+// API base URL for backend calls
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://edi-production.up.railway.app";
+
 function getSupabase() {
     if (typeof window === "undefined") return null;
     if (supabaseClient) return supabaseClient;
@@ -22,6 +25,19 @@ function getSupabase() {
     const { createClient } = require("@supabase/supabase-js");
     supabaseClient = createClient(url, key);
     return supabaseClient;
+}
+
+// Sync user to backend PostgreSQL database
+async function syncUserToBackend(userId: string, email: string, name?: string) {
+    try {
+        await fetch(`${API_BASE_URL}/api/v1/users/sync`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: userId, email, name }),
+        });
+    } catch (error) {
+        console.error("Failed to sync user to backend:", error);
+    }
 }
 
 interface AuthUser {
@@ -83,6 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         firstName: session.user.user_metadata?.first_name,
                         lastName: session.user.user_metadata?.last_name,
                     });
+                    // Sync user to PostgreSQL database
+                    const fullName = [session.user.user_metadata?.first_name, session.user.user_metadata?.last_name]
+                        .filter(Boolean).join(" ") || undefined;
+                    syncUserToBackend(session.user.id, session.user.email || "", fullName);
                 } else {
                     setSession(null);
                     setUser(null);

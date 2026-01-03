@@ -28,6 +28,57 @@ class RoleUpdateRequest(BaseModel):
     role: str
 
 
+class UserSyncRequest(BaseModel):
+    """Request to sync a user from Supabase auth."""
+    id: str  # Supabase user ID
+    email: str
+    name: Optional[str] = None
+
+
+@router.post("/sync")
+async def sync_user(request: UserSyncRequest):
+    """
+    Create or update a user in PostgreSQL when they authenticate via Supabase.
+    Called by the frontend after successful Supabase authentication.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        
+        # Upsert: create if not exists, update if exists
+        cur.execute("""
+            INSERT INTO users (id, email, name, role, created_at)
+            VALUES (%s, %s, %s, 'user', NOW())
+            ON CONFLICT (id) DO UPDATE SET
+                email = EXCLUDED.email,
+                name = COALESCE(EXCLUDED.name, users.name)
+            RETURNING id, email, name, role
+        """, (request.id, request.email.lower(), request.name))
+        
+        result = cur.fetchone()
+        conn.commit()
+        
+        return {
+            "success": True,
+            "user": {
+                "id": result["id"],
+                "email": result["email"],
+                "name": result["name"],
+                "role": result["role"]
+            }
+        }
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Error syncing user: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
 @router.get("/", response_model=List[UserInfo])
 async def get_all_users():
     """Get list of all users (superadmin only)."""
