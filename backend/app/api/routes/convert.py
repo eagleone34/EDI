@@ -119,16 +119,31 @@ async def convert_edi_file(
         # Generate outputs - combine all documents into single files
         outputs = {}
         
+        # Fetch dynamic layout config once for all formats
+        from app.services.layout_service import LayoutService
+        from app.generators.dynamic_generator import DynamicGenerator
+        layout_config = LayoutService.get_active_layout(actual_type)
+        
         if "pdf" in format_list:
-            pdf_gen = PDFGenerator()
-            # Generate multi-page PDF with all documents
-            pdf_bytes = pdf_gen.generate_all(documents)
+            if layout_config:
+                # Use dynamic generator with layout config
+                dynamic_gen = DynamicGenerator(layout_config)
+                pdf_bytes = dynamic_gen.generate_pdf(documents)
+            else:
+                # Fallback to legacy PDF generator
+                pdf_gen = PDFGenerator()
+                pdf_bytes = pdf_gen.generate_all(documents)
             outputs["pdf"] = base64.b64encode(pdf_bytes).decode("utf-8")
         
         if "excel" in format_list:
-            excel_gen = ExcelGenerator()
-            # Generate multi-sheet Excel with all documents
-            excel_bytes = excel_gen.generate_all(documents)
+            if layout_config:
+                # Use dynamic generator with layout config
+                dynamic_gen = DynamicGenerator(layout_config)
+                excel_bytes = dynamic_gen.generate_excel(documents)
+            else:
+                # Fallback to legacy Excel generator
+                excel_gen = ExcelGenerator()
+                excel_bytes = excel_gen.generate_all(documents)
             outputs["excel"] = base64.b64encode(excel_bytes).decode("utf-8")
         
         if "html" in format_list:
