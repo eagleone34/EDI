@@ -120,6 +120,10 @@ export function FileUploader({ onConversionComplete }: FileUploaderProps) {
             formData.append("file", file);
             formData.append("formats", "pdf,excel,html");
             formData.append("transaction_type", transactionType);
+            // Pass user_id so conversions use user's personalized layout if they have one
+            if (user?.id) {
+                formData.append("user_id", user.id);
+            }
 
             // Try calling the real backend API
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://edi-production.up.railway.app';
