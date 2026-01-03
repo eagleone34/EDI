@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronRight, Loader2, CheckCircle2, FileEdit, LayoutGrid } from "lucide-react";
+import { ChevronRight, Loader2, CheckCircle2, FileEdit, LayoutGrid, Users } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 
 interface LayoutSummary {
@@ -88,6 +88,13 @@ export default function AdminLayoutsPage() {
                         Configure the HTML/PDF output format for each EDI transaction type.
                     </p>
                 </div>
+                <Link
+                    href="/dashboard/admin/users"
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
+                >
+                    <Users className="w-4 h-4" />
+                    Manage Users
+                </Link>
             </div>
 
             {/* Stats */}

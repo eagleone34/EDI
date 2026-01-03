@@ -83,6 +83,7 @@ async def get_all_layouts():
                 lv.updated_at
             FROM layout_versions lv
             JOIN transaction_types tt ON lv.transaction_type_code = tt.code
+            WHERE lv.user_id IS NULL
             ORDER BY lv.transaction_type_code, lv.version_number DESC;
         """
         cur.execute(query)
@@ -119,7 +120,7 @@ async def get_layout(type_code: str):
                 lv.updated_at
             FROM layout_versions lv
             JOIN transaction_types tt ON lv.transaction_type_code = tt.code
-            WHERE lv.transaction_type_code = %s
+            WHERE lv.transaction_type_code = %s AND lv.user_id IS NULL
             ORDER BY lv.version_number DESC
             LIMIT 1;
         """
@@ -156,7 +157,7 @@ async def update_layout(type_code: str, request: LayoutUpdateRequest):
         cur.execute("""
             SELECT version_number, status 
             FROM layout_versions 
-            WHERE transaction_type_code = %s 
+            WHERE transaction_type_code = %s AND user_id IS NULL
             ORDER BY version_number DESC 
             LIMIT 1;
         """, (type_code,))
@@ -178,11 +179,10 @@ async def update_layout(type_code: str, request: LayoutUpdateRequest):
                 RETURNING transaction_type_code as code, version_number, status, is_active, config_json, updated_at;
             """, (type_code, new_version, json.dumps(request.config_json)))
         else:
-            # Update existing DRAFT version
             cur.execute("""
                 UPDATE layout_versions 
                 SET config_json = %s, updated_at = NOW()
-                WHERE transaction_type_code = %s AND version_number = %s
+                WHERE transaction_type_code = %s AND version_number = %s AND user_id IS NULL
                 RETURNING transaction_type_code as code, version_number, status, is_active, config_json, updated_at;
             """, (json.dumps(request.config_json), type_code, current_version))
         
