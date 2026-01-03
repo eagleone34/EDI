@@ -278,7 +278,7 @@ async def update_layout(type_code: str, request: LayoutUpdateRequest, user_id: O
                 INSERT INTO layout_versions 
                 (transaction_type_code, version_number, status, config_json, is_active, created_by, updated_at, user_id)
                 VALUES (%s, %s, 'DRAFT', %s, false, %s, NOW(), %s)
-                RETURNING transaction_type_code as code, version_number, status, is_active, config_json, updated_at;
+                RETURNING transaction_type_code as code, version_number, status, is_active, config_json, updated_at, user_id;
             """, (type_code, new_version, json.dumps(request.config_json), creator, user_id))
         else:
             # Update existing DRAFT
@@ -286,7 +286,7 @@ async def update_layout(type_code: str, request: LayoutUpdateRequest, user_id: O
                 UPDATE layout_versions 
                 SET config_json = %s, updated_at = NOW()
                 WHERE transaction_type_code = %s AND version_number = %s {user_filter}
-                RETURNING transaction_type_code as code, version_number, status, is_active, config_json, updated_at;
+                RETURNING transaction_type_code as code, version_number, status, is_active, config_json, updated_at, user_id;
             """, (json.dumps(request.config_json), type_code, current_version) + ((user_id,) if user_id else ()))
         
         conn.commit()
@@ -296,6 +296,14 @@ async def update_layout(type_code: str, request: LayoutUpdateRequest, user_id: O
         cur.execute("SELECT name FROM transaction_types WHERE code = %s;", (type_code,))
         type_info = cur.fetchone()
 
+        # Simplify is_personal logic: if we passed a user_id to update, it is personal. 
+        # Or check result user_id if returned.
+        is_personal_val = False
+        if user_id:
+             is_personal_val = True
+        elif result.get('user_id'):
+             is_personal_val = True
+
         return LayoutDetail(
             code=result['code'],
             name=type_info['name'] if type_info else type_code, # Simplified, frontend handles names usually or fetched above
@@ -303,7 +311,8 @@ async def update_layout(type_code: str, request: LayoutUpdateRequest, user_id: O
             status=result['status'],
             is_active=result['is_active'],
             config_json=result['config_json'],
-            updated_at=result['updated_at']
+            updated_at=result['updated_at'],
+            is_personal=is_personal_val
         )
         
     except Exception as e:
