@@ -12,6 +12,7 @@ import json
 
 from app.db import get_db_connection, get_cursor
 from app.schemas.layout import LayoutConfig
+from app.services.edi_segments import get_segments_for_type, get_all_available_keys
 
 router = APIRouter()
 
@@ -40,6 +41,24 @@ class LayoutDetail(BaseModel):
 class LayoutUpdateRequest(BaseModel):
     """Request body for updating a layout."""
     config_json: dict
+
+
+class SegmentInfo(BaseModel):
+    """EDI segment mapping info."""
+    segment: str
+    key: str
+    description: str
+
+
+@router.get("/segments/{type_code}")
+async def get_segments(type_code: str):
+    """Get EDI segment mappings for a transaction type."""
+    segments = get_segments_for_type(type_code)
+    result = [
+        SegmentInfo(segment=seg, key=info["key"], description=info["description"])
+        for seg, info in segments.items()
+    ]
+    return result
 
 
 @router.get("/", response_model=List[LayoutSummary])

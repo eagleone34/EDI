@@ -3,11 +3,18 @@
 import { Trash2, Eye, EyeOff, Bold } from "lucide-react";
 import { LayoutField } from "./VisualLayoutEditor";
 
+interface SegmentMapping {
+    segment: string;
+    key: string;
+    description: string;
+}
+
 interface FieldEditorProps {
     field: LayoutField;
     onUpdate: (updates: Partial<LayoutField>) => void;
     onDelete: () => void;
     availableFields: string[];
+    segmentMappings?: SegmentMapping[];
     mode: "field" | "column";
 }
 
@@ -19,13 +26,45 @@ const FIELD_TYPES = [
     { value: "status", label: "Status" },
 ];
 
-export default function FieldEditor({ field, onUpdate, onDelete, availableFields, mode }: FieldEditorProps) {
+export default function FieldEditor({
+    field,
+    onUpdate,
+    onDelete,
+    availableFields,
+    segmentMappings = [],
+    mode
+}: FieldEditorProps) {
+    // Find the EDI segment for the current key
+    const currentSegment = segmentMappings.find(m => m.key === field.key);
+
     return (
         <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors group">
+            {/* EDI Segment Badge */}
+            <div className="w-16 flex-shrink-0">
+                <label className="text-[10px] uppercase tracking-wider text-slate-400 block mb-1">Segment</label>
+                <div className={`px-2 py-1.5 rounded text-xs font-mono text-center ${currentSegment ? "bg-indigo-100 text-indigo-700 font-medium" : "bg-slate-100 text-slate-400"
+                    }`}>
+                    {currentSegment?.segment || "—"}
+                </div>
+            </div>
+
             {/* Data Key Selector */}
             <div className="flex-1 min-w-0">
                 <label className="text-[10px] uppercase tracking-wider text-slate-400 block mb-1">Data Key</label>
-                {availableFields.length > 0 ? (
+                {segmentMappings.length > 0 ? (
+                    <select
+                        value={field.key}
+                        onChange={(e) => onUpdate({ key: e.target.value })}
+                        className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="">Select field...</option>
+                        {segmentMappings.map((m) => (
+                            <option key={m.key} value={m.key}>
+                                {m.segment} → {m.key}
+                            </option>
+                        ))}
+                    </select>
+                ) : availableFields.length > 0 ? (
                     <select
                         value={field.key}
                         onChange={(e) => onUpdate({ key: e.target.value })}
