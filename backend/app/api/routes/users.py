@@ -46,15 +46,38 @@ async def sync_user(request: UserSyncRequest):
         conn = get_db_connection()
         cur = get_cursor(conn)
         
-        # Upsert: create if not exists, update if exists
-        cur.execute("""
-            INSERT INTO users (id, email, name, role, created_at)
-            VALUES (%s, %s, %s, 'user', NOW())
-            ON CONFLICT (id) DO UPDATE SET
-                email = EXCLUDED.email,
-                name = COALESCE(EXCLUDED.name, users.name)
-            RETURNING id, email, name, role
-        """, (request.id, request.email.lower(), request.name))
+        # Check if user exists by email first (to handle ID rotation)
+        cur.execute("SELECT id, role FROM users WHERE email = %s", (request.email.lower(),))
+        existing_user = cur.fetchone()
+        
+        if existing_user:
+            # User exists! Check if ID needs migration
+            if existing_user['id'] != request.id:
+                print(f"Migrating user {request.email} from ID {existing_user['id']} to {request.id}")
+                # Update ID and name, keeping role
+                # Note: This might fail if there are FK constraints on old ID (e.g. layouts)
+                # But necessary if Supabase ID changed.
+                cur.execute("""
+                    UPDATE users 
+                    SET id = %s, name = COALESCE(%s, name)
+                    WHERE email = %s
+                    RETURNING id, email, name, role
+                """, (request.id, request.name, request.email.lower()))
+            else:
+                # Same ID, just update details
+                cur.execute("""
+                    UPDATE users 
+                    SET name = COALESCE(%s, name)
+                    WHERE id = %s
+                    RETURNING id, email, name, role
+                """, (request.name, request.id))
+        else:
+            # New user
+            cur.execute("""
+                INSERT INTO users (id, email, name, role, created_at)
+                VALUES (%s, %s, %s, 'user', NOW())
+                RETURNING id, email, name, role
+            """, (request.id, request.email.lower(), request.name))
         
         result = cur.fetchone()
         conn.commit()
