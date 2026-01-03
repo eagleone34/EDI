@@ -128,7 +128,7 @@ export default function UserManagementPage() {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-sm text-slate-500">
-                                    {new Date(user.created_at).toLocaleDateString()}
+                                    {new Date(user.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                                 </td>
                                 <td className="px-6 py-4">
                                     <select

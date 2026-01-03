@@ -167,7 +167,7 @@ function formatValue(value: unknown, type: string): string {
             return `$${strValue}`;
         case "date":
             try {
-                return new Date(strValue).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+                return new Date(strValue).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
             } catch {
                 return strValue;
             }
