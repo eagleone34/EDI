@@ -30,14 +30,20 @@ function getSupabase() {
 // Sync user to backend PostgreSQL database
 async function syncUserToBackend(userId: string, email: string, name?: string) {
     try {
-        await fetch(`${API_BASE_URL}/api/v1/users/sync`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/users/sync`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: userId, email, name }),
         });
+
+        if (response.ok) {
+            const data = await response.json();
+            return data.user;
+        }
     } catch (error) {
         console.error("Failed to sync user to backend:", error);
     }
+    return null;
 }
 
 interface AuthUser {
@@ -45,6 +51,7 @@ interface AuthUser {
     email: string;
     firstName?: string;
     lastName?: string;
+    role?: string;
 }
 
 interface AuthContextType {
@@ -84,6 +91,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     firstName: session.user.user_metadata?.first_name,
                     lastName: session.user.user_metadata?.last_name,
                 });
+
+                // Fetch role
+                const fullName = [session.user.user_metadata?.first_name, session.user.user_metadata?.last_name]
+                    .filter(Boolean).join(" ") || undefined;
+                syncUserToBackend(session.user.id, session.user.email || "", fullName).then(backendUser => {
+                    if (backendUser?.role) {
+                        setUser(prev => prev ? { ...prev, role: backendUser.role } : null);
+                    }
+                });
             }
             setIsLoading(false);
         });
@@ -102,7 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     // Sync user to PostgreSQL database
                     const fullName = [session.user.user_metadata?.first_name, session.user.user_metadata?.last_name]
                         .filter(Boolean).join(" ") || undefined;
-                    syncUserToBackend(session.user.id, session.user.email || "", fullName);
+
+                    syncUserToBackend(session.user.id, session.user.email || "", fullName).then(backendUser => {
+                        if (backendUser?.role) {
+                            setUser(prev => prev ? { ...prev, role: backendUser.role } : null);
+                        }
+                    });
                 } else {
                     setSession(null);
                     setUser(null);
