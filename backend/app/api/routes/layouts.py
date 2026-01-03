@@ -268,8 +268,8 @@ async def update_layout(type_code: str, request: LayoutUpdateRequest, user_id: O
         if should_create_new:
             # Determine new version number (globally unique for simplicity usually, or scoped)
             # Let's make it simple: just MAX(version) + 1 for this type, regardless of user.
-            cur.execute("SELECT COALESCE(MAX(version_number), 0) FROM layout_versions WHERE transaction_type_code = %s", (type_code,))
-            max_ver = cur.fetchone()[0]
+            cur.execute("SELECT COALESCE(MAX(version_number), 0) as max_version FROM layout_versions WHERE transaction_type_code = %s", (type_code,))
+            max_ver = cur.fetchone()['max_version']
             new_version = max_ver + 1
             
             creator = user_id if user_id else 'admin'
