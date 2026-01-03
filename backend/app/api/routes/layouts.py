@@ -289,8 +289,8 @@ async def update_layout(type_code: str, request: LayoutUpdateRequest, user_id: O
                 RETURNING transaction_type_code as code, version_number, status, is_active, config_json, updated_at, user_id;
             """, (json.dumps(request.config_json), type_code, current_version) + ((user_id,) if user_id else ()))
         
-        conn.commit()
         result = cur.fetchone()
+        conn.commit()
         
         # Fetch name from transaction_types (if needed for response, otherwise type_code is fine)
         cur.execute("SELECT name FROM transaction_types WHERE code = %s;", (type_code,))
