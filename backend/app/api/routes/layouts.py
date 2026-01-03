@@ -272,7 +272,7 @@ async def update_layout(type_code: str, request: LayoutUpdateRequest, user_id: O
             max_ver = cur.fetchone()[0]
             new_version = max_ver + 1
             
-            creator = 'user' if user_id else 'admin'
+            creator = user_id if user_id else 'admin'
             
             cur.execute("""
                 INSERT INTO layout_versions 
@@ -319,6 +319,8 @@ async def update_layout(type_code: str, request: LayoutUpdateRequest, user_id: O
         if conn:
             conn.rollback()
         print(f"Error updating layout: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn:
