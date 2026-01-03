@@ -20,6 +20,10 @@ class LayoutColumn(BaseModel):
     style: Optional[str] = None
     visible: bool = True
 
+class LayoutDetail(BaseModel): # Assuming BaseModel as LayoutSummary is not defined
+    config_json: 'LayoutConfig' # Forward reference
+    is_personal: bool = False
+
 class LayoutSection(BaseModel):
     """A visual grouping of fields (e.g., 'Order Information')."""
     id: str  # unique id for the section
