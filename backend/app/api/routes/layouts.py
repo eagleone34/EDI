@@ -471,8 +471,8 @@ async def restore_default_layout(type_code: str, user_id: Optional[str] = None):
         cur = get_cursor(conn)
 
         # Check if user actually has any versions
-        cur.execute("SELECT COUNT(*) FROM layout_versions WHERE transaction_type_code = %s AND user_id = %s", (type_code, user_id))
-        count = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) as count FROM layout_versions WHERE transaction_type_code = %s AND user_id = %s", (type_code, user_id))
+        count = cur.fetchone()['count']
         
         if count == 0:
              return {"message": "No custom layout found. Already using default."}
