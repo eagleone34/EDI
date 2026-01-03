@@ -36,6 +36,7 @@ class LayoutDetail(BaseModel):
     is_active: bool
     config_json: dict
     updated_at: Optional[datetime] = None
+    is_personal: bool = False
 
 
 class LayoutUpdateRequest(BaseModel):
@@ -165,7 +166,7 @@ async def get_layout(type_code: str, user_id: Optional[str] = None):
         if user_id:
              # Try to find specific user version first
             cur.execute("""
-                SELECT version_number, status, config_json, is_active, updated_at
+                SELECT version_number, status, config_json, is_active, updated_at, user_id
                 FROM layout_versions l
                 JOIN transaction_types t ON l.transaction_type_code = t.code
                 WHERE l.transaction_type_code = %s AND l.user_id = %s
@@ -177,7 +178,7 @@ async def get_layout(type_code: str, user_id: Optional[str] = None):
             if not result:
                 # Fallback to system default
                 cur.execute("""
-                    SELECT version_number, status, config_json, is_active, updated_at
+                    SELECT version_number, status, config_json, is_active, updated_at, NULL as user_id
                     FROM layout_versions l
                     JOIN transaction_types t ON l.transaction_type_code = t.code
                     WHERE l.transaction_type_code = %s AND l.user_id IS NULL
@@ -188,7 +189,7 @@ async def get_layout(type_code: str, user_id: Optional[str] = None):
         else:
             # System defaults only (Admin view or generic)
             cur.execute("""
-                SELECT version_number, status, config_json, is_active, updated_at
+                SELECT version_number, status, config_json, is_active, updated_at, NULL as user_id
                 FROM layout_versions l
                 JOIN transaction_types t ON l.transaction_type_code = t.code
                 WHERE l.transaction_type_code = %s AND l.user_id IS NULL
@@ -211,7 +212,8 @@ async def get_layout(type_code: str, user_id: Optional[str] = None):
             status=result['status'],
             is_active=result['is_active'],
             config_json=result['config_json'],
-            updated_at=result['updated_at']
+            updated_at=result['updated_at'],
+            is_personal=bool(user_id and result.get('user_id') == user_id) # Crude check, but let's be more precise
         )
         
     except HTTPException:
@@ -435,6 +437,48 @@ async def lock_layout(type_code: str):
         print(f"Error locking layout {type_code}: {e}")
         if conn:
             conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
+@router.delete("/{type_code}")
+async def restore_default_layout(type_code: str, user_id: Optional[str] = None):
+    """
+    Restore the default layout for a transaction type.
+    - If user_id provided: Deletes ALL 'user' versions for this type.
+    - If user_id None: (Admin) Not supported or maybe deletes draft? 
+      For now, let's only support restoring USER defaults.
+    """
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Cannot restore default for global system layouts. This is for user overrides only.")
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+
+        # Check if user actually has any versions
+        cur.execute("SELECT COUNT(*) FROM layout_versions WHERE transaction_type_code = %s AND user_id = %s", (type_code, user_id))
+        count = cur.fetchone()[0]
+        
+        if count == 0:
+             return {"message": "No custom layout found. Already using default."}
+
+        # Delete all versions for this user and type
+        cur.execute("""
+            DELETE FROM layout_versions 
+            WHERE transaction_type_code = %s AND user_id = %s
+        """, (type_code, user_id))
+        
+        conn.commit()
+        return {"message": "Custom layout deleted. Restored to system default."}
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Error restoring default: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn:

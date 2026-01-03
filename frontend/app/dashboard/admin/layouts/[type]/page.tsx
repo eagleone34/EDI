@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Lock, Rocket, Code, Palette } from "lucide-react";
+import { ArrowLeft, Loader2, Lock, Rocket, Code, Palette, RotateCcw } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import VisualLayoutEditor, { LayoutConfig } from "@/components/admin/VisualLayoutEditor";
 
@@ -14,6 +14,7 @@ interface LayoutDetail {
     status: string;
     is_active: boolean;
     config_json: LayoutConfig;
+    is_personal?: boolean;
 }
 
 import { useAuth } from "@/lib/auth-context";
@@ -110,6 +111,23 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
         }
     };
 
+    const handleRestore = async () => {
+        if (!confirm("Are you sure? This will delete your custom layout and revert to the system default.")) return;
+        try {
+            let url = `${API_BASE_URL}/api/v1/layouts/${typeCode}`;
+            if (user?.role === 'user') {
+                url += `?user_id=${user.id}`;
+            }
+            const response = await fetch(url, { method: "DELETE" });
+            if (!response.ok) throw new Error("Failed to restore");
+
+            setSaveMessage({ type: "success", text: "Restored to default!" });
+            fetchLayout(); // Reload to see default
+        } catch (err) {
+            setSaveMessage({ type: "error", text: err instanceof Error ? err.message : "Restore failed" });
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[600px]">
@@ -183,6 +201,15 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
                         >
                             <Lock className="w-4 h-4" />
                             Lock
+                        </button>
+                    )}
+                    {layout.is_personal && (
+                        <button
+                            onClick={handleRestore}
+                            className="px-3 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium flex items-center gap-2"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                            Restore Default
                         </button>
                     )}
                     {isDraft && (
