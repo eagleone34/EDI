@@ -26,6 +26,7 @@ export default function DashboardLayout({
         { name: "Overview", href: "/dashboard", icon: "📊" },
         { name: "History", href: "/dashboard/history", icon: "📝" },
         { name: "Settings", href: "/dashboard/settings", icon: "⚙️" },
+        { name: "Admin", href: "/dashboard/admin/layouts", icon: "🛠️" },
     ];
 
     // Show loading while checking auth
