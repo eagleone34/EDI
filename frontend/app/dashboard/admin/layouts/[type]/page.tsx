@@ -89,7 +89,12 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
 
     const handlePromote = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v1/layouts/${typeCode}/promote`, { method: "POST" });
+            let url = `${API_BASE_URL}/api/v1/layouts/${typeCode}/promote`;
+            // Pass user_id for non-superadmin users (they can only promote their own layouts)
+            if (user?.role !== 'superadmin' && user?.id) {
+                url += `?user_id=${user.id}`;
+            }
+            const response = await fetch(url, { method: "POST" });
             if (!response.ok) throw new Error("Failed to promote");
             const data = await response.json();
             setSaveMessage({ type: "success", text: data.message });
@@ -101,7 +106,12 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
 
     const handleLock = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v1/layouts/${typeCode}/lock`, { method: "POST" });
+            let url = `${API_BASE_URL}/api/v1/layouts/${typeCode}/lock`;
+            // Pass user_id for non-superadmin users
+            if (user?.role !== 'superadmin' && user?.id) {
+                url += `?user_id=${user.id}`;
+            }
+            const response = await fetch(url, { method: "POST" });
             if (!response.ok) throw new Error("Failed to lock");
             const data = await response.json();
             setSaveMessage({ type: "success", text: data.message });
