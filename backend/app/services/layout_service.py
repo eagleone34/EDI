@@ -5,9 +5,14 @@ from app.schemas.layout import LayoutConfig
 
 class LayoutService:
     @staticmethod
-    def get_active_layout(transaction_type_code: str) -> Optional[LayoutConfig]:
+    def get_active_layout(transaction_type_code: str, user_id: Optional[str] = None) -> Optional[LayoutConfig]:
         """
         Fetch the active layout configuration for a transaction type.
+        
+        Priority:
+        1. If user_id provided and user has a PRODUCTION layout, use that
+        2. Otherwise, use the SYSTEM layout (user_id IS NULL)
+        
         Returns None if no active layout is found.
         """
         conn = None
@@ -15,21 +20,42 @@ class LayoutService:
             conn = get_db_connection()
             cur = get_cursor(conn)
             
-            # Find the active version (status=PRODUCTION or highest version if multiple)
-            # ideally we rely on is_active flag
-            query = """
-                SELECT config_json 
-                FROM layout_versions 
-                WHERE transaction_type_code = %s 
-                  AND status = 'PRODUCTION'
-                  AND is_active = true
-                LIMIT 1;
-            """
-            cur.execute(query, (transaction_type_code,))
-            result = cur.fetchone()
+            config_json = None
             
-            if result and result.get('config_json'):
-                return LayoutConfig(**result['config_json'])
+            # If user_id provided, first try to get user's personal layout
+            if user_id:
+                cur.execute("""
+                    SELECT config_json 
+                    FROM layout_versions 
+                    WHERE transaction_type_code = %s 
+                      AND user_id = %s
+                      AND status = 'PRODUCTION'
+                      AND is_active = true
+                    ORDER BY version_number DESC
+                    LIMIT 1;
+                """, (transaction_type_code, user_id))
+                result = cur.fetchone()
+                if result and result.get('config_json'):
+                    config_json = result['config_json']
+            
+            # Fallback to SYSTEM layout if no user layout found (or no user_id provided)
+            if not config_json:
+                cur.execute("""
+                    SELECT config_json 
+                    FROM layout_versions 
+                    WHERE transaction_type_code = %s 
+                      AND user_id IS NULL
+                      AND status = 'PRODUCTION'
+                      AND is_active = true
+                    ORDER BY version_number DESC
+                    LIMIT 1;
+                """, (transaction_type_code,))
+                result = cur.fetchone()
+                if result and result.get('config_json'):
+                    config_json = result['config_json']
+            
+            if config_json:
+                return LayoutConfig(**config_json)
                 
             return None
             
@@ -39,6 +65,7 @@ class LayoutService:
         finally:
             if conn:
                 conn.close()
+
 
     @staticmethod
     def create_initial_layout(transaction_type_code: str, config: LayoutConfig, user_id: str = "system"):
