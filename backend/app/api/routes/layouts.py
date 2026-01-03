@@ -337,36 +337,47 @@ class PromoteResponse(BaseModel):
 
 
 @router.post("/{type_code}/promote", response_model=PromoteResponse)
-async def promote_layout(type_code: str):
+async def promote_layout(type_code: str, user_id: Optional[str] = None):
     """
     Promote a DRAFT layout to PRODUCTION.
-    - Sets the DRAFT version to PRODUCTION and is_active=true
-    - Sets previous PRODUCTION version to ARCHIVED and is_active=false
+    - If user_id provided: promotes user's personal layout (user scope)
+    - If user_id None: promotes system layout (superadmin scope)
+    
+    Operations are scoped - user promotions never affect system layouts.
     """
     conn = None
     try:
         conn = get_db_connection()
         cur = get_cursor(conn)
         
-        # Get the latest DRAFT version
-        cur.execute("""
+        # Build scope filter
+        if user_id:
+            scope_filter = "AND user_id = %s"
+            scope_params = (type_code, user_id)
+        else:
+            scope_filter = "AND user_id IS NULL"
+            scope_params = (type_code,)
+        
+        # Get the latest DRAFT version within this scope
+        cur.execute(f"""
             SELECT id, version_number 
             FROM layout_versions 
-            WHERE transaction_type_code = %s AND status = 'DRAFT'
+            WHERE transaction_type_code = %s AND status = 'DRAFT' {scope_filter}
             ORDER BY version_number DESC 
             LIMIT 1;
-        """, (type_code,))
+        """, scope_params)
         draft = cur.fetchone()
         
         if not draft:
-            raise HTTPException(status_code=400, detail=f"No DRAFT version found for {type_code}")
+            scope_label = f"user {user_id}" if user_id else "system"
+            raise HTTPException(status_code=400, detail=f"No DRAFT version found for {type_code} in {scope_label} scope")
         
-        # Archive current PRODUCTION versions
-        cur.execute("""
+        # Archive current PRODUCTION versions ONLY within this scope
+        cur.execute(f"""
             UPDATE layout_versions 
             SET status = 'ARCHIVED', is_active = false, updated_at = NOW()
-            WHERE transaction_type_code = %s AND status = 'PRODUCTION';
-        """, (type_code,))
+            WHERE transaction_type_code = %s AND status = 'PRODUCTION' {scope_filter};
+        """, scope_params)
         
         # Promote DRAFT to PRODUCTION
         cur.execute("""
@@ -376,8 +387,8 @@ async def promote_layout(type_code: str):
             RETURNING version_number;
         """, (draft['id'],))
         
-        conn.commit()
         result = cur.fetchone()
+        conn.commit()
         
         return PromoteResponse(
             success=True,
@@ -400,28 +411,38 @@ async def promote_layout(type_code: str):
 
 
 @router.post("/{type_code}/lock", response_model=PromoteResponse)
-async def lock_layout(type_code: str):
+async def lock_layout(type_code: str, user_id: Optional[str] = None):
     """
     Lock a PRODUCTION layout version.
     Locked versions cannot be edited or overwritten.
+    Scoped by user_id - locks only within user (or system if no user_id).
     """
     conn = None
     try:
         conn = get_db_connection()
         cur = get_cursor(conn)
         
-        # Get the current PRODUCTION version
-        cur.execute("""
+        # Build scope filter
+        if user_id:
+            scope_filter = "AND user_id = %s"
+            scope_params = (type_code, user_id)
+        else:
+            scope_filter = "AND user_id IS NULL"
+            scope_params = (type_code,)
+        
+        # Get the current PRODUCTION version within this scope
+        cur.execute(f"""
             SELECT id, version_number, status
             FROM layout_versions 
-            WHERE transaction_type_code = %s AND status = 'PRODUCTION' AND is_active = true
+            WHERE transaction_type_code = %s AND status = 'PRODUCTION' AND is_active = true {scope_filter}
             ORDER BY version_number DESC 
             LIMIT 1;
-        """, (type_code,))
+        """, scope_params)
         production = cur.fetchone()
         
         if not production:
-            raise HTTPException(status_code=400, detail=f"No PRODUCTION version found for {type_code}")
+            scope_label = f"user {user_id}" if user_id else "system"
+            raise HTTPException(status_code=400, detail=f"No PRODUCTION version found for {type_code} in {scope_label} scope")
         
         # Update to LOCKED status
         cur.execute("""
@@ -431,8 +452,8 @@ async def lock_layout(type_code: str):
             RETURNING version_number;
         """, (production['id'],))
         
-        conn.commit()
         result = cur.fetchone()
+        conn.commit()
         
         return PromoteResponse(
             success=True,
