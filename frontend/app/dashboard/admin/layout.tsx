@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 export default function AdminLayout({
     children,
@@ -12,13 +13,17 @@ export default function AdminLayout({
 }) {
     const { user, isLoading } = useAuth();
     const router = useRouter();
+    const pathname = usePathname();
 
     useEffect(() => {
-        // If we know user is loaded, and role is NOT superadmin, kick them out
-        if (!isLoading && user && user.role !== 'superadmin') {
-            router.push('/dashboard');
+        // If we know user is loaded
+        if (!isLoading && user) {
+            // Block generic users from /admin/users
+            if (pathname?.includes('/admin/users') && user.role !== 'superadmin') {
+                router.push('/dashboard/admin/layouts'); // or 404
+            }
         }
-    }, [user, isLoading, router]);
+    }, [user, isLoading, router, pathname]);
 
     if (isLoading) {
         return (
@@ -28,8 +33,8 @@ export default function AdminLayout({
         );
     }
 
-    // Don't render admin content if not superadmin
-    if (user?.role !== 'superadmin') {
+    // Explicit block for specific restricted routes
+    if (pathname?.includes('/admin/users') && user?.role !== 'superadmin') {
         return null;
     }
 

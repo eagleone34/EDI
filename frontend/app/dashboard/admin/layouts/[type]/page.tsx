@@ -16,7 +16,10 @@ interface LayoutDetail {
     config_json: LayoutConfig;
 }
 
+import { useAuth } from "@/lib/auth-context";
+
 export default function EditLayoutPage({ params }: { params: Promise<{ type: string }> }) {
+    const { user, isLoading: authLoading } = useAuth();
     const resolvedParams = use(params);
     const typeCode = resolvedParams.type;
     const router = useRouter();
@@ -29,12 +32,18 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
     const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     useEffect(() => {
-        fetchLayout();
-    }, [typeCode]);
+        if (!authLoading && user) {
+            fetchLayout();
+        }
+    }, [typeCode, authLoading, user]);
 
     const fetchLayout = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v1/layouts/${typeCode}`);
+            let url = `${API_BASE_URL}/api/v1/layouts/${typeCode}`;
+            if (user?.role === 'user') {
+                url += `?user_id=${user.id}`;
+            }
+            const response = await fetch(url);
             if (!response.ok) throw new Error("Failed to fetch layout");
             const data: LayoutDetail = await response.json();
             setLayout(data);
@@ -48,7 +57,11 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
 
     const handleSave = async (config: LayoutConfig) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v1/layouts/${typeCode}`, {
+            let url = `${API_BASE_URL}/api/v1/layouts/${typeCode}`;
+            if (user?.role === 'user') {
+                url += `?user_id=${user.id}`;
+            }
+            const response = await fetch(url, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ config_json: config }),
@@ -134,7 +147,7 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
                         <p className="text-slate-500">
                             {layout.name} • Version {layout.version_number}
                             <span className={`ml-2 px-2 py-0.5 text-xs font-medium rounded-full ${isLocked ? "bg-purple-100 text-purple-700" :
-                                    isProduction ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                                isProduction ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
                                 }`}>
                                 {layout.status}
                             </span>

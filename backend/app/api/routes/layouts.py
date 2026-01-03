@@ -62,34 +62,82 @@ async def get_segments(type_code: str):
 
 
 @router.get("/", response_model=List[LayoutSummary])
-async def get_all_layouts():
+async def get_all_layouts(user_id: Optional[str] = None):
     """
-    Get list of all layout configurations with their current status.
-    Returns one entry per transaction type (the active/latest version).
+    Get all transaction types and their layout status.
+    If user_id provided, returns user-specific status (e.g. active Draft).
     """
     conn = None
     try:
         conn = get_db_connection()
         cur = get_cursor(conn)
         
-        # Get the latest version for each transaction type
-        query = """
-            SELECT DISTINCT ON (lv.transaction_type_code)
-                lv.transaction_type_code as code,
-                tt.name,
-                lv.version_number,
-                lv.status,
-                lv.is_active,
-                lv.updated_at
-            FROM layout_versions lv
-            JOIN transaction_types tt ON lv.transaction_type_code = tt.code
-            WHERE lv.user_id IS NULL
-            ORDER BY lv.transaction_type_code, lv.version_number DESC;
-        """
-        cur.execute(query)
+        # If user_id provided, we want to see:
+        # 1. User's specific version status if exists
+        # 2. Else System Default status
+        
+        if user_id:
+            query = """
+                SELECT 
+                    tt.code, 
+                    tt.name, 
+                    COALESCE(ul.version_number, dl.version_number) as version_number,
+                    COALESCE(ul.status, dl.status) as status,
+                    COALESCE(ul.is_active, dl.is_active) as is_active,
+                    COALESCE(ul.updated_at, dl.updated_at) as updated_at
+                FROM transaction_types tt
+                LEFT JOIN layout_versions dl ON tt.code = dl.transaction_type_code 
+                    AND dl.user_id IS NULL 
+                    AND dl.version_number = (
+                        SELECT MAX(version_number) 
+                        FROM layout_versions 
+                        WHERE transaction_type_code = tt.code AND user_id IS NULL
+                    )
+                LEFT JOIN layout_versions ul ON tt.code = ul.transaction_type_code 
+                    AND ul.user_id = %s 
+                    AND ul.version_number = (
+                        SELECT MAX(version_number) 
+                        FROM layout_versions 
+                        WHERE transaction_type_code = tt.code AND user_id = %s
+                    )
+                ORDER BY tt.code;
+            """
+            cur.execute(query, (user_id, user_id))
+        else:
+            # Original Admin Query (System Defaults)
+            query = """
+                SELECT 
+                    tt.code, 
+                    tt.name, 
+                    lv.version_number,
+                    lv.status,
+                    lv.is_active,
+                    lv.updated_at
+                FROM transaction_types tt
+                LEFT JOIN layout_versions lv ON tt.code = lv.transaction_type_code 
+                    AND lv.user_id IS NULL
+                    AND lv.version_number = (
+                        SELECT MAX(version_number) 
+                        FROM layout_versions 
+                        WHERE transaction_type_code = tt.code AND user_id IS NULL
+                    )
+                ORDER BY tt.code;
+            """
+            cur.execute(query)
+            
         results = cur.fetchall()
         
-        return [LayoutSummary(**row) for row in results]
+        return [
+            LayoutSummary(
+                code=row['code'],
+                name=row['name'],
+                version_number=row['version_number'] if row['version_number'] else 0,
+                status=row['status'] if row['status'] else 'NONE',
+                is_active=row['is_active'] if row['is_active'] is not None else False,
+                updated_at=row['updated_at']
+            )
+            for row in results
+        ]
         
     except Exception as e:
         print(f"Error fetching layouts: {e}")
@@ -100,101 +148,64 @@ async def get_all_layouts():
 
 
 @router.get("/{type_code}", response_model=LayoutDetail)
-async def get_layout(type_code: str):
+async def get_layout(type_code: str, user_id: Optional[str] = None):
     """
-    Get the full layout configuration for a specific transaction type.
+    Get the active layout configuration for a specific transaction type.
+    Priority:
+    1. User's Draft
+    2. User's Production
+    3. System Default (if user_id provided)
     """
     conn = None
     try:
         conn = get_db_connection()
         cur = get_cursor(conn)
         
-        query = """
-            SELECT 
-                lv.transaction_type_code as code,
-                tt.name,
-                lv.version_number,
-                lv.status,
-                lv.is_active,
-                lv.config_json,
-                lv.updated_at
-            FROM layout_versions lv
-            JOIN transaction_types tt ON lv.transaction_type_code = tt.code
-            WHERE lv.transaction_type_code = %s AND lv.user_id IS NULL
-            ORDER BY lv.version_number DESC
-            LIMIT 1;
-        """
-        cur.execute(query, (type_code,))
-        result = cur.fetchone()
+        # Determine query strategy
+        if user_id:
+             # Try to find specific user version first
+            cur.execute("""
+                SELECT version_number, status, config_json, is_active, updated_at
+                FROM layout_versions l
+                JOIN transaction_types t ON l.transaction_type_code = t.code
+                WHERE l.transaction_type_code = %s AND l.user_id = %s
+                ORDER BY l.version_number DESC
+                LIMIT 1;
+            """, (type_code, user_id))
+            result = cur.fetchone()
+            
+            if not result:
+                # Fallback to system default
+                cur.execute("""
+                    SELECT version_number, status, config_json, is_active, updated_at
+                    FROM layout_versions l
+                    JOIN transaction_types t ON l.transaction_type_code = t.code
+                    WHERE l.transaction_type_code = %s AND l.user_id IS NULL
+                    ORDER BY l.version_number DESC
+                    LIMIT 1;
+                """, (type_code,))
+                result = cur.fetchone()
+        else:
+            # System defaults only (Admin view or generic)
+            cur.execute("""
+                SELECT version_number, status, config_json, is_active, updated_at
+                FROM layout_versions l
+                JOIN transaction_types t ON l.transaction_type_code = t.code
+                WHERE l.transaction_type_code = %s AND l.user_id IS NULL
+                ORDER BY l.version_number DESC
+                LIMIT 1;
+            """, (type_code,))
+            result = cur.fetchone()
         
         if not result:
             raise HTTPException(status_code=404, detail=f"Layout for {type_code} not found")
-        
-        return LayoutDetail(**result)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error fetching layout {type_code}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if conn:
-            conn.close()
-
-
-@router.put("/{type_code}", response_model=LayoutDetail)
-async def update_layout(type_code: str, request: LayoutUpdateRequest):
-    """
-    Update the layout configuration for a transaction type.
-    Creates a new DRAFT version if the current version is PRODUCTION.
-    """
-    conn = None
-    try:
-        conn = get_db_connection()
-        cur = get_cursor(conn)
-        
-        # Get current version info
-        cur.execute("""
-            SELECT version_number, status 
-            FROM layout_versions 
-            WHERE transaction_type_code = %s AND user_id IS NULL
-            ORDER BY version_number DESC 
-            LIMIT 1;
-        """, (type_code,))
-        current = cur.fetchone()
-        
-        if not current:
-            raise HTTPException(status_code=404, detail=f"Layout for {type_code} not found")
-        
-        current_version = current['version_number']
-        current_status = current['status']
-        
-        if current_status == 'PRODUCTION':
-            # Create a new DRAFT version
-            new_version = current_version + 1
-            cur.execute("""
-                INSERT INTO layout_versions 
-                (transaction_type_code, version_number, status, config_json, is_active, created_by, updated_at)
-                VALUES (%s, %s, 'DRAFT', %s, false, 'admin', NOW())
-                RETURNING transaction_type_code as code, version_number, status, is_active, config_json, updated_at;
-            """, (type_code, new_version, json.dumps(request.config_json)))
-        else:
-            cur.execute("""
-                UPDATE layout_versions 
-                SET config_json = %s, updated_at = NOW()
-                WHERE transaction_type_code = %s AND version_number = %s AND user_id IS NULL
-                RETURNING transaction_type_code as code, version_number, status, is_active, config_json, updated_at;
-            """, (json.dumps(request.config_json), type_code, current_version))
-        
-        conn.commit()
-        result = cur.fetchone()
-        
-        # Fetch name from transaction_types
+            
+        # Fetch name
         cur.execute("SELECT name FROM transaction_types WHERE code = %s;", (type_code,))
         type_info = cur.fetchone()
-        
+            
         return LayoutDetail(
-            code=result['code'],
+            code=type_code,
             name=type_info['name'] if type_info else type_code,
             version_number=result['version_number'],
             status=result['status'],
@@ -206,9 +217,97 @@ async def update_layout(type_code: str, request: LayoutUpdateRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error updating layout {type_code}: {e}")
+        print(f"Error fetching layout: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
+@router.put("/{type_code}", response_model=LayoutDetail)
+async def update_layout(type_code: str, request: LayoutUpdateRequest, user_id: Optional[str] = None):
+    """
+    Update layout configuration.
+    - If user_id provided: Create/Update USER specific version.
+    - If user_id None: Create/Update SYSTEM DEFAULT version (Superadmin only).
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        
+        # 1. Check for existing DRAFT for this scope
+        params = (type_code, user_id) if user_id else (type_code,)
+        user_filter = "AND user_id = %s" if user_id else "AND user_id IS NULL"
+        
+        cur.execute(f"""
+            SELECT version_number, status 
+            FROM layout_versions 
+            WHERE transaction_type_code = %s {user_filter}
+            ORDER BY version_number DESC 
+            LIMIT 1;
+        """, params)
+        current = cur.fetchone()
+        
+        should_create_new = False
+        current_version = 0
+        
+        if not current:
+            # First time for this user? Need to find base version number?
+            # Actually, version numbers can be independent or shared sequence.
+            # Independent sequence per user is cleaner, but complex to track globally.
+            # Let's just find the MAX version globally to be safe + 1.
+            should_create_new = True
+        else:
+            current_version = current['version_number']
+            if current['status'] == 'PRODUCTION':
+                should_create_new = True
+            
+        if should_create_new:
+            # Determine new version number (globally unique for simplicity usually, or scoped)
+            # Let's make it simple: just MAX(version) + 1 for this type, regardless of user.
+            cur.execute("SELECT COALESCE(MAX(version_number), 0) FROM layout_versions WHERE transaction_type_code = %s", (type_code,))
+            max_ver = cur.fetchone()[0]
+            new_version = max_ver + 1
+            
+            creator = 'user' if user_id else 'admin'
+            
+            cur.execute("""
+                INSERT INTO layout_versions 
+                (transaction_type_code, version_number, status, config_json, is_active, created_by, updated_at, user_id)
+                VALUES (%s, %s, 'DRAFT', %s, false, %s, NOW(), %s)
+                RETURNING transaction_type_code as code, version_number, status, is_active, config_json, updated_at;
+            """, (type_code, new_version, json.dumps(request.config_json), creator, user_id))
+        else:
+            # Update existing DRAFT
+            cur.execute(f"""
+                UPDATE layout_versions 
+                SET config_json = %s, updated_at = NOW()
+                WHERE transaction_type_code = %s AND version_number = %s {user_filter}
+                RETURNING transaction_type_code as code, version_number, status, is_active, config_json, updated_at;
+            """, (json.dumps(request.config_json), type_code, current_version) + ((user_id,) if user_id else ()))
+        
+        conn.commit()
+        result = cur.fetchone()
+        
+        # Fetch name from transaction_types (if needed for response, otherwise type_code is fine)
+        cur.execute("SELECT name FROM transaction_types WHERE code = %s;", (type_code,))
+        type_info = cur.fetchone()
+
+        return LayoutDetail(
+            code=result['code'],
+            name=type_info['name'] if type_info else type_code, # Simplified, frontend handles names usually or fetched above
+            version_number=result['version_number'],
+            status=result['status'],
+            is_active=result['is_active'],
+            config_json=result['config_json'],
+            updated_at=result['updated_at']
+        )
+        
+    except Exception as e:
         if conn:
             conn.rollback()
+        print(f"Error updating layout: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn:

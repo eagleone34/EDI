@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronRight, Loader2, CheckCircle2, FileEdit, LayoutGrid, Users } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
+import { useAuth } from "@/lib/auth-context";
 
 interface LayoutSummary {
     code: string;
@@ -14,17 +15,24 @@ interface LayoutSummary {
 }
 
 export default function AdminLayoutsPage() {
+    const { user, isLoading: authLoading } = useAuth();
     const [layouts, setLayouts] = useState<LayoutSummary[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchLayouts();
-    }, []);
+        if (!authLoading && user) {
+            fetchLayouts();
+        }
+    }, [authLoading, user]);
 
     const fetchLayouts = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v1/layouts`);
+            let url = `${API_BASE_URL}/api/v1/layouts`;
+            if (user?.role === 'user') {
+                url += `?user_id=${user.id}`;
+            }
+            const response = await fetch(url);
             if (!response.ok) throw new Error("Failed to fetch layouts");
             const data = await response.json();
             setLayouts(data);
@@ -82,19 +90,21 @@ export default function AdminLayoutsPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
                         <LayoutGrid className="w-7 h-7 text-blue-600" />
-                        Layout Manager
+                        {user?.role === 'superadmin' ? 'Global Layout Manager' : 'My Layouts'}
                     </h1>
                     <p className="text-slate-500 mt-1">
                         Configure the HTML/PDF output format for each EDI transaction type.
                     </p>
                 </div>
-                <Link
-                    href="/dashboard/admin/users"
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
-                >
-                    <Users className="w-4 h-4" />
-                    Manage Users
-                </Link>
+                {user?.role === 'superadmin' && (
+                    <Link
+                        href="/dashboard/admin/users"
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
+                    >
+                        <Users className="w-4 h-4" />
+                        Manage Users
+                    </Link>
+                )}
             </div>
 
             {/* Stats */}
@@ -148,11 +158,13 @@ export default function AdminLayoutsPage() {
                 </div>
             </div>
 
-            {layouts.length === 0 && (
-                <div className="text-center py-12 text-slate-500">
-                    No layouts configured yet. Seed the database to get started.
-                </div>
-            )}
-        </div>
+            {
+                layouts.length === 0 && (
+                    <div className="text-center py-12 text-slate-500">
+                        No layouts configured yet. Seed the database to get started.
+                    </div>
+                )
+            }
+        </div >
     );
 }
