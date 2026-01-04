@@ -1,20 +1,13 @@
 "use client";
 
 import { Trash2, Eye, EyeOff, Bold } from "lucide-react";
-import { LayoutField } from "./VisualLayoutEditor";
-
-interface SegmentMapping {
-    segment: string;
-    key: string;
-    description: string;
-}
+import { LayoutField, SegmentMapping } from "./VisualLayoutEditor";
 
 interface FieldEditorProps {
     field: LayoutField;
     onUpdate: (updates: Partial<LayoutField>) => void;
     onDelete: () => void;
-    availableFields: string[];
-    segmentMappings?: SegmentMapping[];
+    segmentMappings: SegmentMapping[];
     mode: "field" | "column";
 }
 
@@ -30,8 +23,7 @@ export default function FieldEditor({
     field,
     onUpdate,
     onDelete,
-    availableFields,
-    segmentMappings = [],
+    segmentMappings,
     mode
 }: FieldEditorProps) {
     // Find the EDI segment for the current key
@@ -62,17 +54,6 @@ export default function FieldEditor({
                             <option key={m.key} value={m.key}>
                                 {m.segment} → {m.key}
                             </option>
-                        ))}
-                    </select>
-                ) : availableFields.length > 0 ? (
-                    <select
-                        value={field.key}
-                        onChange={(e) => onUpdate({ key: e.target.value })}
-                        className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">Select field...</option>
-                        {availableFields.map((f) => (
-                            <option key={f} value={f}>{f}</option>
                         ))}
                     </select>
                 ) : (

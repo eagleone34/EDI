@@ -38,6 +38,20 @@ export interface LayoutColumn {
     visible: boolean;
 }
 
+export interface SegmentMapping {
+    segment: string;
+    key: string;
+    description: string;
+}
+
+export interface LayoutColumn {
+    key: string;
+    label: string;
+    width?: string;
+    type: string;
+    visible: boolean;
+}
+
 export interface LayoutSection {
     id: string;
     title: string;
@@ -59,7 +73,7 @@ interface VisualLayoutEditorProps {
     typeCode: string;
     typeName: string;
     onSave: (config: LayoutConfig) => Promise<void>;
-    availableFields?: string[];
+    segmentMappings?: SegmentMapping[];
 }
 
 export default function VisualLayoutEditor({
@@ -67,7 +81,7 @@ export default function VisualLayoutEditor({
     typeCode,
     typeName,
     onSave,
-    availableFields = [],
+    segmentMappings = [],
 }: VisualLayoutEditorProps) {
     const [config, setConfig] = useState<LayoutConfig>(initialConfig);
     const [showPreview, setShowPreview] = useState(true);
@@ -145,8 +159,8 @@ export default function VisualLayoutEditor({
                     <button
                         onClick={() => setShowPreview(!showPreview)}
                         className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${showPreview
-                                ? "bg-indigo-100 text-indigo-700"
-                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                            ? "bg-indigo-100 text-indigo-700"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                             }`}
                     >
                         {showPreview ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -182,7 +196,7 @@ export default function VisualLayoutEditor({
                                         section={section}
                                         onUpdate={(updates) => updateSection(section.id, updates)}
                                         onDelete={() => deleteSection(section.id)}
-                                        availableFields={availableFields}
+                                        segmentMappings={segmentMappings}
                                     />
                                 ))}
                             </SortableContext>

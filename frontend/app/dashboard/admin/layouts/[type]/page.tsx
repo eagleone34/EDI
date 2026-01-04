@@ -17,6 +17,12 @@ interface LayoutDetail {
     is_personal?: boolean;
 }
 
+interface SegmentMapping {
+    segment: string;
+    key: string;
+    description: string;
+}
+
 import { useAuth } from "@/lib/auth-context";
 
 export default function EditLayoutPage({ params }: { params: Promise<{ type: string }> }) {
@@ -28,6 +34,7 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
     const [layout, setLayout] = useState<LayoutDetail | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [segmentMappings, setSegmentMappings] = useState<SegmentMapping[]>([]);
     const [editorMode, setEditorMode] = useState<"visual" | "json">("visual");
     const [jsonText, setJsonText] = useState("");
     const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -35,8 +42,21 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
     useEffect(() => {
         if (!authLoading && user) {
             fetchLayout();
+            fetchSegments();
         }
     }, [typeCode, authLoading, user]);
+
+    const fetchSegments = async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v1/layouts/segments/${typeCode}`);
+            if (response.ok) {
+                const data = await response.json();
+                setSegmentMappings(data);
+            }
+        } catch (err) {
+            console.error('Error fetching segments:', err);
+        }
+    };
 
     const fetchLayout = async () => {
         try {
@@ -258,11 +278,7 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
                         typeCode={layout.code}
                         typeName={layout.name}
                         onSave={handleSave}
-                        availableFields={[
-                            "credit_debit_number", "date", "purchase_order_number", "po_number",
-                            "vendor_name", "buyer_name", "total_amount", "adjustment_reason",
-                            "quantity", "unit_price", "description", "assigned_id"
-                        ]}
+                        segmentMappings={segmentMappings}
                     />
                 ) : (
                     <div className="flex flex-col h-full">

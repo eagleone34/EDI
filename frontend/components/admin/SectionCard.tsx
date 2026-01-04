@@ -5,16 +5,16 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, ChevronDown, ChevronRight, Trash2, Plus, Table, FormInput } from "lucide-react";
 import FieldEditor from "./FieldEditor";
-import { LayoutSection, LayoutField, LayoutColumn } from "./VisualLayoutEditor";
+import { LayoutSection, LayoutField, LayoutColumn, SegmentMapping } from "./VisualLayoutEditor";
 
 interface SectionCardProps {
     section: LayoutSection;
     onUpdate: (updates: Partial<LayoutSection>) => void;
     onDelete: () => void;
-    availableFields: string[];
+    segmentMappings: SegmentMapping[];
 }
 
-export default function SectionCard({ section, onUpdate, onDelete, availableFields }: SectionCardProps) {
+export default function SectionCard({ section, onUpdate, onDelete, segmentMappings }: SectionCardProps) {
     const [isExpanded, setIsExpanded] = useState(true);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
 
@@ -155,7 +155,7 @@ export default function SectionCard({ section, onUpdate, onDelete, availableFiel
                                     field={field}
                                     onUpdate={(updates) => updateField(index, updates)}
                                     onDelete={() => deleteField(index)}
-                                    availableFields={availableFields}
+                                    segmentMappings={segmentMappings}
                                     mode="field"
                                 />
                             ))}
@@ -176,7 +176,7 @@ export default function SectionCard({ section, onUpdate, onDelete, availableFiel
                                     field={column as unknown as LayoutField}
                                     onUpdate={(updates) => updateColumn(index, updates as Partial<LayoutColumn>)}
                                     onDelete={() => deleteColumn(index)}
-                                    availableFields={availableFields}
+                                    segmentMappings={segmentMappings}
                                     mode="column"
                                 />
                             ))}
