@@ -12,10 +12,23 @@ engine = create_engine(settings.DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
-    """Create database tables if they don't exist."""
+    """Create database tables if they don't exist and run migrations."""
     print("Creating database tables...")
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully.")
+    
+    # Run layout migrations on startup
+    try:
+        from app.db import get_db_connection, get_cursor
+        from app.core.migrations import run_layout_migrations
+        
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        run_layout_migrations(conn, cur)
+        conn.close()
+        print("Layout migrations completed successfully.")
+    except Exception as e:
+        print(f"Layout migration warning: {e}")
 
 def get_db():
     """Dependency for getting DB session."""
