@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # Comprehensive LayoutConfig for each transaction type
 LAYOUT_CONFIGS = {
     "810": {
-        "title_format": "Invoice #{invoice_number}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#2563eb",
         "sections": [
             {
@@ -90,7 +90,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "812": {
-        "title_format": "Credit/Debit Memo #{credit_debit_number}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#dc2626",
         "sections": [
             {
@@ -152,7 +152,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "816": {
-        "title_format": "Organizational Relationships #{reference_id}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#7c3aed",
         "sections": [
             {
@@ -184,7 +184,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "820": {
-        "title_format": "Payment Order #{trace_number}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#059669",
         "sections": [
             {
@@ -231,7 +231,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "824": {
-        "title_format": "Application Advice #{reference_id}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#ea580c",
         "sections": [
             {
@@ -275,7 +275,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "830": {
-        "title_format": "Planning Schedule #{schedule_id}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#0891b2",
         "sections": [
             {
@@ -324,7 +324,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "850": {
-        "title_format": "Purchase Order #{po_number}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#2563eb",
         "sections": [
             {
@@ -407,7 +407,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "852": {
-        "title_format": "Product Activity Report #{report_id}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#8b5cf6",
         "sections": [
             {
@@ -469,7 +469,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "855": {
-        "title_format": "PO Acknowledgment #{po_number}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#16a34a",
         "sections": [
             {
@@ -520,7 +520,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "856": {
-        "title_format": "Advance Ship Notice #{shipment_id}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#0284c7",
         "sections": [
             {
@@ -588,7 +588,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "860": {
-        "title_format": "PO Change Request #{po_number}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#d97706",
         "sections": [
             {
@@ -646,7 +646,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "861": {
-        "title_format": "Receiving Advice #{receiving_advice_number}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#0d9488",
         "sections": [
             {
@@ -709,7 +709,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "864": {
-        "title_format": "Text Message",
+        "title_format": "{name}",
         "theme_color": "#64748b",
         "sections": [
             {
@@ -750,7 +750,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "870": {
-        "title_format": "Order Status Report #{report_id}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#6366f1",
         "sections": [
             {
@@ -798,7 +798,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "875": {
-        "title_format": "Grocery PO #{po_number}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#15803d",
         "sections": [
             {
@@ -860,7 +860,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "880": {
-        "title_format": "Grocery Invoice #{invoice_number}",
+        "title_format": "{name} - {ref_number}",
         "theme_color": "#b91c1c",
         "sections": [
             {
@@ -917,12 +917,11 @@ LAYOUT_CONFIGS = {
                     {"key": "total_quantity", "label": "Total Quantity", "type": "number", "visible": True},
                     {"key": "total_invoice_amount", "label": "Total Amount", "type": "currency", "visible": True, "style": "bold"},
                 ],
-                "columns": []
             }
         ]
     },
     "997": {
-        "title_format": "Functional Acknowledgment",
+        "title_format": "{name}",
         "theme_color": "#475569",
         "sections": [
             {
