@@ -136,8 +136,11 @@ class DynamicGenerator:
                         elements.append(t)
                 
                 elif section.type == "table":
-                    # Build data table
-                    items = getattr(edi_doc, section.data_source_key, []) or []
+                    # Build data table - check both doc attribute and doc.header
+                    items = getattr(edi_doc, section.data_source_key, None)
+                    if items is None and hasattr(edi_doc, 'header') and isinstance(edi_doc.header, dict):
+                        items = edi_doc.header.get(section.data_source_key, [])
+                    items = items or []
                     if items:
                         headers = [Paragraph(col.label, label_style) for col in section.columns if col.visible]
                         table_data = [headers]
@@ -245,7 +248,11 @@ class DynamicGenerator:
                     current_row += 2
                 
                 elif section.type == "table":
-                    items = getattr(edi_doc, section.data_source_key, []) or []
+                    # Get table data - check both doc attribute and doc.header
+                    items = getattr(edi_doc, section.data_source_key, None)
+                    if items is None and hasattr(edi_doc, 'header') and isinstance(edi_doc.header, dict):
+                        items = edi_doc.header.get(section.data_source_key, [])
+                    items = items or []
                     if items:
                         # Headers
                         visible_cols = [col for col in section.columns if col.visible]
@@ -259,7 +266,7 @@ class DynamicGenerator:
                         # Data rows
                         for item in items:
                             for j, col in enumerate(visible_cols, 1):
-                                val = item.get(col.key, "—")
+                                val = item.get(col.key, "—") if isinstance(item, dict) else "—"
                                 if col.type == "currency":
                                     try:
                                         val = float(val)
@@ -346,8 +353,11 @@ class DynamicGenerator:
         return f'<div class="fields-grid">{"".join(fields_html)}</div>'
 
     def _render_table_section(self, section: LayoutSection, doc) -> str:
-        # Get list source
-        items = getattr(doc, section.data_source_key, []) or []
+        # Get list source - check both doc attribute and doc.header
+        items = getattr(doc, section.data_source_key, None)
+        if items is None and hasattr(doc, 'header') and isinstance(doc.header, dict):
+            items = doc.header.get(section.data_source_key, [])
+        items = items or []
         
         headers = "".join([f'<th width="{col.width or ""}">{col.label}</th>' for col in section.columns if col.visible])
         
@@ -357,7 +367,7 @@ class DynamicGenerator:
             for col in section.columns:
                 if not col.visible:
                     continue
-                val = item.get(col.key, "—")
+                val = item.get(col.key, "—") if isinstance(item, dict) else "—"
                 # Format
                 if col.type == "currency":
                     try: val = f"${float(val):,.2f}"

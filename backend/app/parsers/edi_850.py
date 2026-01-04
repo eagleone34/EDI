@@ -134,19 +134,32 @@ class EDI850Parser(BaseEDIParser):
         # Parse DTM (Date/Time Reference)
         dtm_segments = self.get_all_segments_by_id(segments, "DTM")
         document.header["dates"] = {}
+        # Map qualifiers to snake_case keys for layout config
+        date_key_map = {
+            "002": "delivery_requested",
+            "010": "requested_ship_date",
+            "037": "ship_not_before",
+            "038": "ship_not_later",
+            "063": "do_not_deliver_before",
+            "064": "do_not_deliver_after",
+        }
         for dtm in dtm_segments:
             if len(dtm["elements"]) >= 2:
                 qualifier = dtm["elements"][0]
                 date_value = dtm["elements"][1]
-                date_label = self.DATE_QUALIFIERS.get(qualifier, f"Date {qualifier}")
                 
                 # Format the date
                 if date_value and len(date_value) == 8:
                     formatted = f"{date_value[:4]}-{date_value[4:6]}-{date_value[6:8]}"
                 else:
                     formatted = date_value
-                    
+                
+                # Store with both human-readable key and snake_case key for header
+                date_label = self.DATE_QUALIFIERS.get(qualifier, f"Date {qualifier}")
                 document.header["dates"][date_label] = formatted
+                # Also store directly in header with snake_case key for layout config
+                if qualifier in date_key_map:
+                    document.header[date_key_map[qualifier]] = formatted
         
         # Parse FOB (F.O.B. Related Instructions)
         fob = self.get_segment_by_id(segments, "FOB")
@@ -167,6 +180,71 @@ class EDI850Parser(BaseEDIParser):
                     "code": sac["elements"][1] if len(sac["elements"]) > 1 else "",
                     "amount": sac["elements"][4] if len(sac["elements"]) > 4 else "",
                 })
+        
+        # Parse TD5 (Carrier Details - Routing)
+        td5_segments = self.get_all_segments_by_id(segments, "TD5")
+        if td5_segments:
+            routing_info = []
+            for td5 in td5_segments:
+                transport_method = td5["elements"][3] if len(td5["elements"]) > 3 else ""
+                method_map = {
+                    "J": "Air", "M": "Motor (Common Carrier)", "R": "Rail",
+                    "S": "Ocean", "H": "Private Carrier", "P": "Private Parcel",
+                    "CG": "Ground Carrier", "ZZ": "Mutually Defined"
+                }
+                routing_info.append({
+                    "routing_sequence": td5["elements"][0] if len(td5["elements"]) > 0 else "",
+                    "id_qualifier": td5["elements"][1] if len(td5["elements"]) > 1 else "",
+                    "carrier_id": td5["elements"][2] if len(td5["elements"]) > 2 else "",
+                    "transport_method": method_map.get(transport_method, transport_method),
+                    "routing": td5["elements"][4] if len(td5["elements"]) > 4 else "",
+                })
+            document.header["carrier_routing"] = routing_info
+            # Set primary routing for header display
+            if routing_info:
+                document.header["routing"] = routing_info[0].get("routing", "")
+                document.header["transport_method"] = routing_info[0].get("transport_method", "")
+                document.header["carrier"] = routing_info[0].get("carrier_id", "")
+        
+        # Parse TD1 (Carrier Details - Quantity and Weight)
+        td1 = self.get_segment_by_id(segments, "TD1")
+        if td1:
+            document.header["packaging_code"] = td1["elements"][0] if len(td1["elements"]) > 0 else ""
+            document.header["lading_quantity"] = td1["elements"][1] if len(td1["elements"]) > 1 else ""
+            document.header["commodity_code_qualifier"] = td1["elements"][2] if len(td1["elements"]) > 2 else ""
+            document.header["commodity_code"] = td1["elements"][3] if len(td1["elements"]) > 3 else ""
+            document.header["weight"] = td1["elements"][6] if len(td1["elements"]) > 6 else ""
+            document.header["weight_unit"] = td1["elements"][7] if len(td1["elements"]) > 7 else ""
+        
+        # Parse CS (Sales Requirements)
+        cs = self.get_segment_by_id(segments, "CS")
+        if cs:
+            cs_code = cs["elements"][0] if len(cs["elements"]) > 0 else ""
+            cs_map = {"NB": "No Back Order", "BO": "Back Order OK", "SH": "Ship Complete"}
+            document.header["sales_requirement"] = cs_map.get(cs_code, cs_code)
+            document.header["sales_requirement_code"] = cs_code
+        
+        # Parse header-level PER (Administrative Contact) - before N1 loops
+        # Find PER segments that appear before the first N1
+        first_n1_idx = len(parsed_segments)
+        for i, seg in enumerate(parsed_segments):
+            if seg["id"] == "N1":
+                first_n1_idx = i
+                break
+        
+        for i, seg in enumerate(parsed_segments):
+            if seg["id"] == "PER" and i < first_n1_idx:
+                per_func = seg["elements"][0] if len(seg["elements"]) > 0 else ""
+                func_map = {"OC": "Order Contact", "BD": "Buyer Contact", "IC": "Information Contact"}
+                document.header["contact_function"] = func_map.get(per_func, per_func)
+                document.header["contact_name"] = seg["elements"][1] if len(seg["elements"]) > 1 else ""
+                document.header["contact_type"] = seg["elements"][2] if len(seg["elements"]) > 2 else ""
+                document.header["contact_number"] = seg["elements"][3] if len(seg["elements"]) > 3 else ""
+                # Additional contact methods
+                if len(seg["elements"]) > 5:
+                    document.header["contact_type2"] = seg["elements"][4]
+                    document.header["contact_number2"] = seg["elements"][5]
+                break  # Take first header PER
         
         # Parse party information with addresses (N1, N2, N3, N4, PER loops)
         self._parse_party_loops(parsed_segments, document)
@@ -327,6 +405,21 @@ class EDI850Parser(BaseEDIParser):
                         descriptions.append(pid["elements"][4])
             
             line_item["description"] = " ".join(descriptions) if descriptions else None
+            
+            # Look for PO4 (Item Physical Details / Pack)
+            for i in range(po1_idx + 1, min(end_idx, po1_idx + 10)):
+                if i < len(segments) and segments[i]["id"] == "PO4":
+                    po4 = segments[i]
+                    line_item["pack"] = po4["elements"][0] if len(po4["elements"]) > 0 else ""
+                    line_item["inner_pack"] = po4["elements"][1] if len(po4["elements"]) > 1 else ""
+                    line_item["gross_weight"] = po4["elements"][5] if len(po4["elements"]) > 5 else ""
+                    line_item["gross_weight_unit"] = po4["elements"][6] if len(po4["elements"]) > 6 else ""
+                    break
+            
+            # Store additional product IDs for display (UPC, SKU, Vendor Style)
+            line_item["upc"] = product_ids.get("UPC/EAN") or product_ids.get("UPC Consumer Package") or ""
+            line_item["sku"] = product_ids.get("SKU") or ""
+            line_item["vendor_style"] = product_ids.get("Vendor's Item Number") or ""
             
             document.line_items.append(line_item)
         

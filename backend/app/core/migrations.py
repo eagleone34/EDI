@@ -329,7 +329,7 @@ LAYOUT_CONFIGS = {
         "sections": [
             {
                 "id": "order_info",
-                "title": "Order Information",
+                "title": "Document Information",
                 "type": "fields",
                 "visible": True,
                 "fields": [
@@ -337,23 +337,100 @@ LAYOUT_CONFIGS = {
                     {"key": "po_date", "label": "PO Date", "type": "date", "visible": True},
                     {"key": "purpose", "label": "Purpose", "type": "text", "visible": True},
                     {"key": "order_type", "label": "Order Type", "type": "text", "visible": True},
-                    {"key": "currency", "label": "Currency", "type": "text", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "contact_info",
+                "title": "Contact Information",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "contact_function", "label": "Contact Role", "type": "text", "visible": True},
+                    {"key": "contact_name", "label": "Contact Name", "type": "text", "visible": True, "style": "bold"},
+                    {"key": "contact_number", "label": "Telephone", "type": "text", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "references",
+                "title": "Reference Information",
+                "type": "table",
+                "visible": True,
+                "data_source_key": "references",
+                "fields": [],
+                "columns": [
+                    {"key": "type", "label": "Reference Type", "type": "text", "visible": True},
+                    {"key": "value", "label": "Reference Value", "type": "text", "visible": True},
+                ]
+            },
+            {
+                "id": "fob_info",
+                "title": "F.O.B. Related Instructions",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "fob", "label": "Shipment Method of Payment", "type": "text", "visible": True},
+                    {"key": "fob_location", "label": "F.O.B. Location", "type": "text", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "sales_req",
+                "title": "Sales Requirements",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "sales_requirement", "label": "Sales Requirement", "type": "text", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "terms",
+                "title": "Terms of Sale",
+                "type": "fields",
+                "visible": True,
+                "fields": [
                     {"key": "payment_terms", "label": "Payment Terms", "type": "text", "visible": True},
-                    {"key": "fob", "label": "FOB", "type": "text", "visible": True},
+                    {"key": "currency", "label": "Currency", "type": "text", "visible": True},
                 ],
                 "columns": []
             },
             {
                 "id": "dates",
-                "title": "Key Dates",
+                "title": "Date/Time Reference",
                 "type": "fields",
                 "visible": True,
-                "data_source_key": "dates",
                 "fields": [
-                    {"key": "Delivery Requested", "label": "Delivery Requested", "type": "date", "visible": True},
-                    {"key": "Requested Ship Date", "label": "Requested Ship Date", "type": "date", "visible": True},
-                    {"key": "Ship Not Before", "label": "Ship Not Before", "type": "date", "visible": True},
-                    {"key": "Ship Not Later Than", "label": "Ship Not Later Than", "type": "date", "visible": True},
+                    {"key": "delivery_requested", "label": "Delivery Requested", "type": "date", "visible": True},
+                    {"key": "requested_ship_date", "label": "Requested Ship Date", "type": "date", "visible": True},
+                    {"key": "ship_not_before", "label": "Ship Not Before", "type": "date", "visible": True},
+                    {"key": "ship_not_later", "label": "Ship Not Later Than", "type": "date", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "carrier_details",
+                "title": "Carrier Details (Quantity and Weight)",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "commodity_code_qualifier", "label": "Commodity Code Qualifier", "type": "text", "visible": True},
+                    {"key": "commodity_code", "label": "Commodity Code", "type": "text", "visible": True},
+                    {"key": "weight", "label": "Weight", "type": "text", "visible": True},
+                    {"key": "weight_unit", "label": "Weight Unit", "type": "text", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "routing",
+                "title": "Carrier Details (Routing)",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "transport_method", "label": "Transportation Method", "type": "text", "visible": True},
+                    {"key": "carrier", "label": "Carrier", "type": "text", "visible": True},
+                    {"key": "routing", "label": "Routing", "type": "text", "visible": True},
                 ],
                 "columns": []
             },
@@ -378,15 +455,19 @@ LAYOUT_CONFIGS = {
             },
             {
                 "id": "line_items",
-                "title": "Line Items",
+                "title": "Line Item Information",
                 "type": "table",
                 "visible": True,
                 "data_source_key": "line_items",
                 "fields": [],
                 "columns": [
-                    {"key": "line_number", "label": "#", "type": "text", "visible": True},
-                    {"key": "product_id", "label": "Product ID", "type": "text", "visible": True},
+                    {"key": "line_number", "label": "Line", "type": "text", "visible": True},
+                    {"key": "upc", "label": "UPC", "type": "text", "visible": True},
+                    {"key": "product_id", "label": "Purchaser's Item", "type": "text", "visible": True},
+                    {"key": "vendor_style", "label": "Vendor Style", "type": "text", "visible": True},
+                    {"key": "sku", "label": "SKU", "type": "text", "visible": True},
                     {"key": "description", "label": "Description", "type": "text", "visible": True},
+                    {"key": "pack", "label": "Pack", "type": "text", "visible": True},
                     {"key": "quantity", "label": "Qty", "type": "number", "visible": True},
                     {"key": "unit", "label": "Unit", "type": "text", "visible": True},
                     {"key": "unit_price", "label": "Unit Price", "type": "currency", "visible": True},
@@ -400,7 +481,7 @@ LAYOUT_CONFIGS = {
                 "visible": True,
                 "fields": [
                     {"key": "total_line_items", "label": "Total Line Items", "type": "number", "visible": True},
-                    {"key": "total_amount", "label": "Total Amount", "type": "currency", "visible": True, "style": "bold"},
+                    {"key": "calculated_total", "label": "Total Amount", "type": "currency", "visible": True, "style": "bold"},
                 ],
                 "columns": []
             }
