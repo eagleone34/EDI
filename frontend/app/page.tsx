@@ -124,7 +124,7 @@ export default function Home() {
                 <div className="max-w-6xl mx-auto">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                            Why businesses choose EDI.email
+                            Why businesses choose ReadableEDI
                         </h2>
                         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
                             We solve the real problems SMBs face with EDI compliance
@@ -160,13 +160,19 @@ export default function Home() {
                             {
                                 emoji: "💰",
                                 title: "Transparent Pricing",
-                                desc: "$99/month unlimited. No hidden fees or \"request quote\" games.",
+                                desc: "Simple pricing with no hidden fees or 'request quote' games.",
                                 highlight: true
                             },
                             {
                                 emoji: "🔒",
                                 title: "Enterprise Security",
-                                desc: "Encrypted storage, SOC 2 compliant, GDPR ready.",
+                                desc: "Encrypted storage and secure data handling.",
+                                highlight: false
+                            },
+                            {
+                                emoji: "☁️",
+                                title: "Cloud Integrations",
+                                desc: "Connect via SFTP, Google Drive, or OneDrive.",
                                 highlight: false
                             },
                         ].map((feature, i) => (
@@ -205,7 +211,7 @@ export default function Home() {
                         </p>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-8">
+                    <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
                         {/* Free Tier */}
                         <div className="bg-white border border-slate-200 rounded-2xl p-8 hover:shadow-lg transition-shadow">
                             <h3 className="text-xl font-semibold mb-2">Free</h3>
@@ -226,15 +232,14 @@ export default function Home() {
                             </button>
                         </div>
 
-                        {/* Pro Tier */}
-                        <div className="relative bg-gradient-to-b from-primary-600 to-primary-700 rounded-2xl p-8 text-white shadow-xl shadow-primary-500/30 scale-105">
+                        {/* Enterprise Tier */}
+                        <div className="relative bg-gradient-to-b from-primary-600 to-primary-700 rounded-2xl p-8 text-white shadow-xl shadow-primary-500/30">
                             <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                                Most Popular
+                                Contact Us
                             </div>
-                            <h3 className="text-xl font-semibold mb-2">Pro</h3>
+                            <h3 className="text-xl font-semibold mb-2">Enterprise</h3>
                             <div className="mb-6">
-                                <span className="text-4xl font-bold">$99</span>
-                                <span className="text-white/70">/month</span>
+                                <span className="text-4xl font-bold">Custom</span>
                             </div>
                             <ul className="space-y-3 mb-8">
                                 {[
@@ -242,8 +247,10 @@ export default function Home() {
                                     "Email automation",
                                     "PDF, Excel, HTML output",
                                     "Smart routing",
+                                    "SFTP / Google Drive / OneDrive",
+                                    "API access",
                                     "Custom branding",
-                                    "Priority support"
+                                    "Dedicated support"
                                 ].map((item, i) => (
                                     <li key={i} className="flex items-center gap-2">
                                         <Check className="w-5 h-5 text-emerald-300" />
@@ -252,32 +259,6 @@ export default function Home() {
                                 ))}
                             </ul>
                             <button className="w-full py-3 bg-white text-primary-600 rounded-xl font-semibold hover:bg-slate-100 transition-colors">
-                                Start Free Trial
-                            </button>
-                        </div>
-
-                        {/* Enterprise Tier */}
-                        <div className="bg-white border border-slate-200 rounded-2xl p-8 hover:shadow-lg transition-shadow">
-                            <h3 className="text-xl font-semibold mb-2">Enterprise</h3>
-                            <div className="mb-6">
-                                <span className="text-4xl font-bold">Custom</span>
-                            </div>
-                            <ul className="space-y-3 mb-8">
-                                {[
-                                    "Everything in Pro",
-                                    "SFTP/AS2 integration",
-                                    "API access",
-                                    "SLA guarantees",
-                                    "Dedicated support",
-                                    "White-label options"
-                                ].map((item, i) => (
-                                    <li key={i} className="flex items-center gap-2">
-                                        <Check className="w-5 h-5 text-green-500" />
-                                        <span className="text-slate-600">{item}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                            <button className="w-full py-3 border border-slate-300 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
                                 Contact Sales
                             </button>
                         </div>
@@ -339,7 +320,7 @@ export default function Home() {
                         </div>
                     </div>
                     <div className="pt-8 border-t border-slate-800 text-center text-slate-500">
-                        <p>© 2025 ReadableEDI. All rights reserved.</p>
+                        <p>© 2026 ReadableEDI. All rights reserved.</p>
                     </div>
                 </div>
             </footer>
