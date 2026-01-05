@@ -92,7 +92,7 @@ export default function HistoryPage() {
         let result = documents.filter((doc) => {
             const matchesSearch =
                 doc.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (doc.trading_partner?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+                (doc.trading_partner || "").toLowerCase().includes(searchQuery.toLowerCase());
             const matchesType = selectedType === "all" || doc.transaction_type === selectedType;
             return matchesSearch && matchesType;
         });

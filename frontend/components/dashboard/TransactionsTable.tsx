@@ -79,7 +79,7 @@ export default function TransactionsTable() {
             const matchesSearch =
                 doc.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 doc.transaction_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (doc.trading_partner?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+                (doc.trading_partner || "").toLowerCase().includes(searchTerm.toLowerCase());
             const matchesType = filterType === "all" || doc.transaction_type === filterType;
             return matchesSearch && matchesType;
         });
