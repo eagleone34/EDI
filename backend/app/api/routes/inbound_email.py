@@ -318,11 +318,38 @@ async def process_inbound_email(request: Request):
         # Parse webhook payload
         body = await request.json()
         
-        # Handle the 'from' field mapping
-        if 'from' in body:
-            body['from_'] = body.pop('from')
+        print(f"Received webhook: {body.get('type', 'unknown')}")
         
-        payload = InboundEmailWebhook(**body)
+        # Resend wraps email data in a 'data' object with event 'type' at root
+        if 'data' in body and body.get('type') == 'email.received':
+            email_data = body['data']
+        else:
+            # Fallback for direct payload
+            email_data = body
+        
+        # Handle the 'from' field mapping
+        if 'from' in email_data:
+            from_value = email_data.pop('from')
+            # Handle string format "email" or dict format {"address": "email"}
+            if isinstance(from_value, str):
+                email_data['from_'] = EmailAddress(address=from_value)
+            elif isinstance(from_value, dict):
+                email_data['from_'] = EmailAddress(**from_value)
+            else:
+                email_data['from_'] = None
+        
+        # Handle 'to' field - could be list of strings or list of dicts
+        if 'to' in email_data:
+            to_list = email_data['to']
+            converted_to = []
+            for t in to_list:
+                if isinstance(t, str):
+                    converted_to.append(EmailAddress(address=t))
+                elif isinstance(t, dict):
+                    converted_to.append(EmailAddress(**t))
+            email_data['to'] = converted_to
+        
+        payload = InboundEmailWebhook(**email_data)
         
         # Get recipient email (the user's inbound address)
         if not payload.to:
@@ -330,6 +357,8 @@ async def process_inbound_email(request: Request):
         
         inbound_email = payload.to[0].address.lower()
         sender_email = payload.from_.address if payload.from_ else "unknown@unknown.com"
+        
+        print(f"Processing email to: {inbound_email} from: {sender_email}")
         
         # Look up user
         user = lookup_user_by_inbound_email(inbound_email)
