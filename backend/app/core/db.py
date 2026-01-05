@@ -20,13 +20,19 @@ def init_db():
     # Run layout migrations on startup
     try:
         from app.db import get_db_connection, get_cursor
-        from app.core.migrations import run_layout_migrations
+        from app.core.migrations import run_layout_migrations, run_schema_migrations
         
         conn = get_db_connection()
         cur = get_cursor(conn)
+        
+        # Run schema migrations (creates missing tables)
+        run_schema_migrations(conn, cur)
+        
+        # Run layout migrations
         run_layout_migrations(conn, cur)
+        
         conn.close()
-        print("Layout migrations completed successfully.")
+        print("Database migrations completed successfully.")
     except Exception as e:
         print(f"Layout migration warning: {e}")
 

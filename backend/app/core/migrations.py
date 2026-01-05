@@ -1114,3 +1114,57 @@ def run_layout_migrations(conn, cur):
     conn.commit()
     logger.info(f"Layout migration complete: {updated_count}/{len(LAYOUT_CONFIGS)} layouts updated")
     return updated_count
+
+
+def run_schema_migrations(conn, cur):
+    """
+    Run critical schema migrations that might have been missed.
+    Called during app startup.
+    """
+    try:
+        logging.info("Running schema migrations...")
+        
+        # 1. Add inbound_email to users
+        cur.execute("""
+            ALTER TABLE users 
+            ADD COLUMN IF NOT EXISTS inbound_email VARCHAR(255) UNIQUE;
+        """)
+        
+        # 2. Create inbound_email_errors
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS inbound_email_errors (
+                id VARCHAR(36) PRIMARY KEY,
+                user_id VARCHAR(36) NOT NULL,
+                sender_email VARCHAR(255) NOT NULL,
+                filename VARCHAR(255),
+                error_message TEXT NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+        """)
+        
+        # 3. Create email_routes (CRITICAL FIX)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS email_routes (
+                id VARCHAR(36) PRIMARY KEY,
+                user_id VARCHAR(36) NOT NULL REFERENCES users(id),
+                transaction_type VARCHAR(50) NOT NULL,
+                email_addresses TEXT[] NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                UNIQUE(user_id, transaction_type)
+            );
+        """)
+        
+        # 4. Create indexes
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_users_inbound_email ON users(inbound_email);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_email_routes_lookup ON email_routes(user_id, transaction_type);")
+        
+        conn.commit()
+        logging.info("Schema migrations completed successfully.")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Schema migration failed: {e}")
+        conn.rollback()
+        return False
