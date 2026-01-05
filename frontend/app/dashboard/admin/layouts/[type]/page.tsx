@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Lock, Rocket, Code, Palette, RotateCcw } from "lucide-react";
+import { ArrowLeft, Loader2, Rocket, Code, Palette, RotateCcw, ChevronDown } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import VisualLayoutEditor, { LayoutConfig } from "@/components/admin/VisualLayoutEditor";
 
@@ -124,20 +124,20 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
         }
     };
 
-    const handleLock = async () => {
+    const handleStatusChange = async (newStatus: string) => {
+        if (user?.role !== 'superadmin') return;
         try {
-            let url = `${API_BASE_URL}/api/v1/layouts/${typeCode}/lock`;
-            // Pass user_id for non-superadmin users
-            if (user?.role !== 'superadmin' && user?.id) {
-                url += `?user_id=${user.id}`;
-            }
-            const response = await fetch(url, { method: "POST" });
-            if (!response.ok) throw new Error("Failed to lock");
+            const response = await fetch(`${API_BASE_URL}/api/v1/layouts/${typeCode}/status`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus }),
+            });
+            if (!response.ok) throw new Error("Failed to change status");
             const data = await response.json();
             setSaveMessage({ type: "success", text: data.message });
             fetchLayout();
         } catch (err) {
-            setSaveMessage({ type: "error", text: err instanceof Error ? err.message : "Lock failed" });
+            setSaveMessage({ type: "error", text: err instanceof Error ? err.message : "Status change failed" });
         }
     };
 
@@ -224,14 +224,19 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
                         </button>
                     </div>
 
-                    {isProduction && (
-                        <button
-                            onClick={handleLock}
-                            className="px-3 py-2 border border-purple-300 text-purple-700 hover:bg-purple-50 rounded-lg text-sm font-medium flex items-center gap-2"
-                        >
-                            <Lock className="w-4 h-4" />
-                            Lock
-                        </button>
+                    {/* Status Dropdown - Superadmin Only */}
+                    {user?.role === 'superadmin' && (
+                        <div className="relative">
+                            <select
+                                value={layout.status}
+                                onChange={(e) => handleStatusChange(e.target.value)}
+                                className="px-3 py-2 pr-8 border border-slate-300 rounded-lg text-sm font-medium bg-white cursor-pointer appearance-none"
+                            >
+                                <option value="PRODUCTION">LIVE</option>
+                                <option value="DRAFT">DRAFT</option>
+                            </select>
+                            <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                        </div>
                     )}
                     {layout.is_personal && (
                         <button
@@ -262,13 +267,7 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
                 </div>
             )}
 
-            {/* Locked Warning */}
-            {isLocked && (
-                <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 text-sm flex items-center gap-2">
-                    <Lock className="w-4 h-4" />
-                    This layout is locked and cannot be edited.
-                </div>
-            )}
+
 
             {/* Editor */}
             <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden">

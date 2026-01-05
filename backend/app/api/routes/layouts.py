@@ -466,6 +466,71 @@ async def promote_layout(type_code: str, user_id: Optional[str] = None):
             conn.close()
 
 
+class StatusChangeRequest(BaseModel):
+    """Request body for changing layout status."""
+    status: str
+
+
+@router.put("/{type_code}/status", response_model=PromoteResponse)
+async def change_layout_status(type_code: str, request: StatusChangeRequest):
+    """
+    Change the status of a system layout (superadmin only).
+    Only allows changing between PRODUCTION and DRAFT.
+    """
+    conn = None
+    valid_statuses = ["PRODUCTION", "DRAFT"]
+    
+    if request.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+    
+    try:
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        
+        # Get the current system layout (user_id IS NULL)
+        cur.execute("""
+            SELECT id, version_number, status 
+            FROM layout_versions 
+            WHERE transaction_type_code = %s AND user_id IS NULL
+            ORDER BY version_number DESC
+            LIMIT 1
+        """, (type_code,))
+        
+        current = cur.fetchone()
+        if not current:
+            raise HTTPException(status_code=404, detail=f"No layout found for {type_code}")
+        
+        # Update the status
+        cur.execute("""
+            UPDATE layout_versions 
+            SET status = %s, is_active = %s, updated_at = NOW()
+            WHERE id = %s
+            RETURNING version_number
+        """, (request.status, request.status == "PRODUCTION", current['id']))
+        
+        result = cur.fetchone()
+        conn.commit()
+        
+        return PromoteResponse(
+            success=True,
+            message=f"Status changed to {request.status}",
+            code=type_code,
+            version_number=result['version_number'],
+            status=request.status
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error changing status for {type_code}: {e}")
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
 @router.post("/{type_code}/lock", response_model=PromoteResponse)
 async def lock_layout(type_code: str, user_id: Optional[str] = None):
     """

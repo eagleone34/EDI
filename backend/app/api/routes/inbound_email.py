@@ -269,6 +269,8 @@ def save_document_to_supabase(
             "created_at": datetime.utcnow().isoformat(),
         }
         
+        print(f"Saving document to Supabase for user {user_id}...")
+        
         # Store base64 data URLs
         if pdf_base64:
             doc_data["pdf_url"] = f"data:application/pdf;base64,{pdf_base64}"
@@ -277,15 +279,23 @@ def save_document_to_supabase(
         if html_content:
             html_b64 = base64.b64encode(html_content.encode()).decode()
             doc_data["html_url"] = f"data:text/html;base64,{html_b64}"
+            
+        print(f"Document payload prepared. Size: {len(str(doc_data))} bytes")
         
         result = client.table("documents").insert(doc_data).execute()
         
         if result.data:
-            return result.data[0].get("id")
+            doc_id = result.data[0].get("id")
+            print(f"Document saved successfully. ID: {doc_id}")
+            return doc_id
+            
+        print("Document insert returned no data")
         return None
         
     except Exception as e:
         print(f"Error saving document to Supabase: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
