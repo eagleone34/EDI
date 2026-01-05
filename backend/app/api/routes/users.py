@@ -74,7 +74,7 @@ async def sync_user(request: UserSyncRequest):
                     UPDATE users 
                     SET id = %s, name = COALESCE(%s, name)
                     WHERE email = %s
-                    RETURNING id, email, name, role
+                    RETURNING id, email, name, role, inbound_email
                 """, (request.id, request.name, request.email.lower()))
             else:
                 # Same ID, just update details
@@ -82,7 +82,7 @@ async def sync_user(request: UserSyncRequest):
                     UPDATE users 
                     SET name = COALESCE(%s, name)
                     WHERE id = %s
-                    RETURNING id, email, name, role
+                    RETURNING id, email, name, role, inbound_email
                 """, (request.name, request.id))
         else:
             # New user - generate unique inbound email
