@@ -35,7 +35,11 @@ class EmailAttachment(BaseModel):
     """Email attachment from Resend."""
     filename: str
     content_type: str
-    content: str  # Base64 encoded
+    content: Optional[str] = None  # Base64 encoded - may not be in webhook
+    id: Optional[str] = None  # Attachment ID for fetching content
+    content_disposition: Optional[str] = None
+    content_id: Optional[str] = None
+    size: Optional[int] = None
 
 
 class EmailAddress(BaseModel):
@@ -106,6 +110,50 @@ def lookup_user_by_inbound_email(inbound_email: str) -> Optional[dict]:
     finally:
         if conn:
             conn.close()
+
+
+def fetch_attachment_content(email_id: str, attachment_id: str) -> Optional[str]:
+    """
+    Fetch attachment content from Resend API.
+    Returns base64 encoded content or None if failed.
+    """
+    try:
+        import requests
+        
+        if not settings.RESEND_API_KEY:
+            print("No Resend API key configured")
+            return None
+        
+        # Get attachment download URL from Resend
+        headers = {"Authorization": f"Bearer {settings.RESEND_API_KEY}"}
+        
+        # Resend API: GET /emails/{email_id}/attachments/{attachment_id}
+        url = f"https://api.resend.com/emails/{email_id}/attachments/{attachment_id}"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code != 200:
+            print(f"Failed to get attachment info: {response.status_code} - {response.text}")
+            return None
+        
+        data = response.json()
+        download_url = data.get("download_url")
+        
+        if not download_url:
+            print("No download URL in attachment response")
+            return None
+        
+        # Download the actual file content
+        file_response = requests.get(download_url)
+        if file_response.status_code != 200:
+            print(f"Failed to download attachment: {file_response.status_code}")
+            return None
+        
+        # Return as base64 encoded string
+        return base64.b64encode(file_response.content).decode('utf-8')
+        
+    except Exception as e:
+        print(f"Error fetching attachment content: {e}")
+        return None
 
 
 def get_user_email_routes(user_id: str, transaction_type: str) -> List[str]:
@@ -360,6 +408,10 @@ async def process_inbound_email(request: Request):
         
         print(f"Processing email to: {inbound_email} from: {sender_email}")
         
+        # Get email_id for fetching attachments (Resend needs this)
+        email_id = email_data.get('email_id')
+        print(f"Email ID: {email_id}")
+        
         # Look up user
         user = lookup_user_by_inbound_email(inbound_email)
         if not user:
@@ -377,8 +429,21 @@ async def process_inbound_email(request: Request):
             filename = attachment.filename
             
             try:
+                # Get attachment content - either inline or fetch from Resend
+                if attachment.content:
+                    # Content is inline (base64)
+                    content_b64 = attachment.content
+                elif attachment.id and email_id:
+                    # Fetch from Resend API
+                    print(f"Fetching attachment {attachment.id} from Resend...")
+                    content_b64 = fetch_attachment_content(email_id, attachment.id)
+                    if not content_b64:
+                        raise ValueError(f"Could not fetch attachment content for {filename}")
+                else:
+                    raise ValueError(f"No content or attachment ID for {filename}")
+                
                 # Decode attachment content
-                content_bytes = base64.b64decode(attachment.content)
+                content_bytes = base64.b64decode(content_b64)
                 content = content_bytes.decode('utf-8', errors='ignore')
                 
                 # Detect transaction type
