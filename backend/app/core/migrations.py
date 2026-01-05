@@ -1123,6 +1123,24 @@ def run_schema_migrations(conn, cur):
     """
     try:
         logging.info("Running schema migrations...")
+
+        # 0. Create documents table (CRITICAL)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS documents (
+                id VARCHAR(36) PRIMARY KEY,
+                user_id VARCHAR(36) NOT NULL,
+                filename VARCHAR(255) NOT NULL,
+                transaction_type VARCHAR(50),
+                transaction_name VARCHAR(100),
+                trading_partner VARCHAR(255),
+                transaction_count INTEGER DEFAULT 1,
+                source VARCHAR(50) DEFAULT 'web',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                pdf_url TEXT,
+                excel_url TEXT,
+                html_url TEXT
+            );
+        """)
         
         # 1. Add inbound_email to users
         cur.execute("""
