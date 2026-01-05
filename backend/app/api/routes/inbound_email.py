@@ -277,7 +277,13 @@ def save_document_to_supabase(
         if excel_base64:
             doc_data["excel_url"] = f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{excel_base64}"
         if html_content:
-            html_b64 = base64.b64encode(html_content.encode()).decode()
+            # Handle both string and bytes
+            if isinstance(html_content, str):
+                html_bytes = html_content.encode()
+            else:
+                html_bytes = html_content
+                
+            html_b64 = base64.b64encode(html_bytes).decode()
             doc_data["html_url"] = f"data:text/html;base64,{html_b64}"
             
         print(f"Document payload prepared. Size: {len(str(doc_data))} bytes")
