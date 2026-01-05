@@ -177,3 +177,50 @@ async def update_user_role(user_id: str, request: RoleUpdateRequest):
     finally:
         if conn:
             conn.close()
+
+
+@router.delete("/{user_id}")
+async def delete_user(user_id: str):
+    """Delete a user (superadmin only)."""
+    conn = None
+    
+    try:
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        
+        # First check if user exists
+        cur.execute("SELECT id, email, role FROM users WHERE id = %s", (user_id,))
+        user = cur.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Prevent deleting superadmins as a safety measure
+        if user.get("role") == "superadmin":
+            raise HTTPException(status_code=403, detail="Cannot delete superadmin users")
+        
+        # Delete user's related data first (if any foreign key constraints)
+        # Delete from inbound_email_errors
+        cur.execute("DELETE FROM inbound_email_errors WHERE user_id = %s", (user_id,))
+        
+        # Delete the user
+        cur.execute("DELETE FROM users WHERE id = %s RETURNING id, email", (user_id,))
+        deleted = cur.fetchone()
+        
+        conn.commit()
+        
+        return {
+            "success": True,
+            "message": f"User {deleted['email']} deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Error deleting user: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()

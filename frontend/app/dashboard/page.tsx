@@ -17,8 +17,11 @@ export default function DashboardPage() {
     const [showTimeSavedInfo, setShowTimeSavedInfo] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    // Use firstName if available, otherwise fallback to email prefix
-    const displayName = user?.firstName || user?.email?.split("@")[0] || "User";
+    // Capitalize first letter of name
+    const capitalizeFirst = (str: string) => str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    const displayName = user?.firstName
+        ? capitalizeFirst(user.firstName)
+        : capitalizeFirst(user?.email?.split("@")[0] || "User");
 
     // Fetch user's documents for stats
     useEffect(() => {
@@ -60,43 +63,6 @@ export default function DashboardPage() {
                 <p className="text-slate-500 mt-1">Welcome back, {displayName}.</p>
             </div>
 
-            {/* Inbound Email Card */}
-            {user?.inboundEmail && (
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5">
-                    <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                            <Mail className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                            <h3 className="font-semibold text-slate-800 mb-1">Your Inbound Email Address</h3>
-                            <p className="text-sm text-slate-600 mb-3">
-                                Forward EDI files to this address for automatic conversion. Documents will appear in your dashboard and routing rules will apply.
-                            </p>
-                            <div className="flex items-center gap-2">
-                                <div className="flex-1 bg-white border border-blue-200 rounded-lg px-4 py-2.5 font-mono text-sm text-slate-700 select-all">
-                                    {user.inboundEmail}
-                                </div>
-                                <button
-                                    onClick={handleCopyEmail}
-                                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
-                                >
-                                    {copied ? (
-                                        <>
-                                            <Check className="w-4 h-4" />
-                                            Copied!
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Copy className="w-4 h-4" />
-                                            Copy
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -176,6 +142,39 @@ export default function DashboardPage() {
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                 <h2 className="text-lg font-semibold text-slate-800 mb-4">Convert EDI File</h2>
                 <FileUploader />
+
+                {/* Inbound Email - Automation Prompt */}
+                {user?.inboundEmail && (
+                    <div className="mt-6 pt-5 border-t border-slate-100">
+                        <div className="flex items-start gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+                            <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Mail className="w-4 h-4 text-blue-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-800 mb-1">💡 Automate with Email</p>
+                                <p className="text-xs text-slate-600 mb-2">
+                                    Forward EDI files to your unique address for automatic conversion.
+                                    Your routing rules will apply instantly!
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <code className="flex-1 px-3 py-1.5 bg-white border border-blue-200 rounded-lg font-mono text-xs text-slate-700 truncate">
+                                        {user.inboundEmail}
+                                    </code>
+                                    <button
+                                        onClick={handleCopyEmail}
+                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors flex-shrink-0"
+                                    >
+                                        {copied ? (
+                                            <><Check className="w-3 h-3" /> Copied</>
+                                        ) : (
+                                            <><Copy className="w-3 h-3" /> Copy</>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Supported Types - shared component */}
                 <SupportedTypes className="mt-6 pt-4 border-t border-slate-100" />

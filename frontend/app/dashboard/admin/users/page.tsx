@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, Shield, User, ArrowLeft, Loader2 } from "lucide-react";
+import { Users, Shield, User, ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 
 interface UserInfo {
@@ -17,6 +17,8 @@ export default function UserManagementPage() {
     const [users, setUsers] = useState<UserInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
     useEffect(() => {
         fetchUsers();
@@ -46,6 +48,22 @@ export default function UserManagementPage() {
             fetchUsers();
         } catch (err) {
             setError(err instanceof Error ? err.message : "Update failed");
+        }
+    };
+
+    const deleteUser = async (userId: string) => {
+        setDeletingUserId(userId);
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}`, {
+                method: "DELETE",
+            });
+            if (!response.ok) throw new Error("Failed to delete user");
+            setConfirmDelete(null);
+            fetchUsers();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Delete failed");
+        } finally {
+            setDeletingUserId(null);
         }
     };
 
@@ -131,15 +149,43 @@ export default function UserManagementPage() {
                                     {new Date(user.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                                 </td>
                                 <td className="px-6 py-4">
-                                    <select
-                                        value={user.role || "user"}
-                                        onChange={(e) => updateRole(user.id, e.target.value)}
-                                        className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="user">User</option>
-                                        <option value="admin">Admin</option>
-                                        <option value="superadmin">Superadmin</option>
-                                    </select>
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            value={user.role || "user"}
+                                            onChange={(e) => updateRole(user.id, e.target.value)}
+                                            className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="user">User</option>
+                                            <option value="admin">Admin</option>
+                                            <option value="superadmin">Superadmin</option>
+                                        </select>
+
+                                        {confirmDelete === user.id ? (
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => deleteUser(user.id)}
+                                                    disabled={deletingUserId === user.id}
+                                                    className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded font-medium disabled:opacity-50"
+                                                >
+                                                    {deletingUserId === user.id ? "..." : "Confirm"}
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmDelete(null)}
+                                                    className="px-2 py-1 text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 rounded font-medium"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setConfirmDelete(user.id)}
+                                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                title="Delete user"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
