@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     # Conversion Settings
     CONVERSION_TIMEOUT_SECONDS: int = 30
     
+    # Inbound Email
+    INBOUND_EMAIL_DOMAIN: str = "readableedi.com"
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

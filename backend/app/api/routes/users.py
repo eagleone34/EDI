@@ -4,12 +4,14 @@ Users API Router
 User management endpoints for superadmins.
 """
 
+import hashlib
 from fastapi import APIRouter, HTTPException
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
 from app.db import get_db_connection, get_cursor
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -20,7 +22,18 @@ class UserInfo(BaseModel):
     email: str
     name: Optional[str] = None
     role: Optional[str] = "user"
+    inbound_email: Optional[str] = None
     created_at: Optional[datetime] = None
+
+
+def generate_inbound_email(user_id: str) -> str:
+    """
+    Generate a unique inbound email address for a user.
+    Format: user_{short_hash}@readableedi.com
+    """
+    short_id = hashlib.sha256(user_id.encode()).hexdigest()[:8]
+    domain = getattr(settings, 'INBOUND_EMAIL_DOMAIN', 'readableedi.com')
+    return f"user_{short_id}@{domain}"
 
 
 class RoleUpdateRequest(BaseModel):
@@ -72,12 +85,13 @@ async def sync_user(request: UserSyncRequest):
                     RETURNING id, email, name, role
                 """, (request.name, request.id))
         else:
-            # New user
+            # New user - generate unique inbound email
+            inbound_email = generate_inbound_email(request.id)
             cur.execute("""
-                INSERT INTO users (id, email, name, role, created_at)
-                VALUES (%s, %s, %s, 'user', NOW())
-                RETURNING id, email, name, role
-            """, (request.id, request.email.lower(), request.name))
+                INSERT INTO users (id, email, name, role, inbound_email, created_at)
+                VALUES (%s, %s, %s, 'user', %s, NOW())
+                RETURNING id, email, name, role, inbound_email
+            """, (request.id, request.email.lower(), request.name, inbound_email))
         
         result = cur.fetchone()
         conn.commit()
@@ -88,7 +102,8 @@ async def sync_user(request: UserSyncRequest):
                 "id": result["id"],
                 "email": result["email"],
                 "name": result["name"],
-                "role": result["role"]
+                "role": result["role"],
+                "inbound_email": result.get("inbound_email")
             }
         }
         

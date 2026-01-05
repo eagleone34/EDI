@@ -81,7 +81,7 @@ export default function Home() {
                                 icon: Mail,
                                 step: "01",
                                 title: "Forward your EDI",
-                                desc: "Send EDI files to your unique @edi.email address, or upload directly on the web.",
+                                desc: "Send EDI files to your unique @readableedi.com address, or upload directly on the web.",
                                 color: "from-blue-500 to-blue-600"
                             },
                             {
@@ -213,29 +213,41 @@ export default function Home() {
 
                     <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
                         {/* Free Tier */}
-                        <div className="bg-white border border-slate-200 rounded-2xl p-8 hover:shadow-lg transition-shadow">
+                        <div className="bg-white border border-slate-200 rounded-2xl p-8 hover:shadow-lg transition-shadow relative">
                             <h3 className="text-xl font-semibold mb-2">Free</h3>
                             <div className="mb-6">
                                 <span className="text-4xl font-bold">$0</span>
                                 <span className="text-slate-500">/month</span>
                             </div>
-                            <ul className="space-y-3 mb-8">
-                                {["10 conversions/month", "PDF output only", "Web upload", "Email support"].map((item, i) => (
-                                    <li key={i} className="flex items-center gap-2">
-                                        <Check className="w-5 h-5 text-green-500" />
-                                        <span className="text-slate-600">{item}</span>
-                                    </li>
-                                ))}
-                            </ul>
+
+                            {/* Cute arrow pointing to Enterprise */}
+                            <div className="mb-6 p-4 bg-gradient-to-r from-primary-50 to-violet-50 rounded-xl border border-primary-100">
+                                <div className="flex items-center gap-3">
+                                    <div className="text-2xl">✨</div>
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-700">Everything in Enterprise</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">except...</p>
+                                    </div>
+                                    <svg className="w-6 h-6 text-primary-500 ml-auto animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 mb-6 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                <span className="text-amber-600 font-semibold">📊</span>
+                                <span className="text-amber-800 font-medium">10 conversions/month</span>
+                            </div>
+
                             <button className="w-full py-3 border border-slate-300 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-                                Get Started
+                                Get Started Free
                             </button>
                         </div>
 
                         {/* Enterprise Tier */}
                         <div className="relative bg-gradient-to-b from-primary-600 to-primary-700 rounded-2xl p-8 text-white shadow-xl shadow-primary-500/30">
                             <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                                Contact Us
+                                Most Popular
                             </div>
                             <h3 className="text-xl font-semibold mb-2">Enterprise</h3>
                             <div className="mb-6">
@@ -246,7 +258,7 @@ export default function Home() {
                                     "Unlimited conversions",
                                     "Email automation",
                                     "PDF, Excel, HTML output",
-                                    "Smart routing",
+                                    "Smart routing rules",
                                     "SFTP / Google Drive / OneDrive",
                                     "API access",
                                     "Custom branding",

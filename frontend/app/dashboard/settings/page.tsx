@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Server, Check, X } from "lucide-react";
+import { Plus, Server, Check, X, Mail, Copy } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
+import { useAuth } from "@/lib/auth-context";
 import EmailRoutesSettings from "@/components/dashboard/EmailRoutesSettings";
 
 export default function IntegrationsPage() {
+    const { user } = useAuth();
     const [isAdding, setIsAdding] = useState(false);
     const [protocol, setProtocol] = useState<"sftp" | "gdrive" | "onedrive">("sftp");
+    const [copied, setCopied] = useState(false);
 
     // Form State
     const [name, setName] = useState("");
@@ -18,6 +21,14 @@ export default function IntegrationsPage() {
 
     const [isTesting, setIsTesting] = useState(false);
     const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
+
+    const handleCopyEmail = () => {
+        if (user?.inboundEmail) {
+            navigator.clipboard.writeText(user.inboundEmail);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
 
     const handleTestConnection = async () => {
         setIsTesting(true);
@@ -50,6 +61,53 @@ export default function IntegrationsPage() {
 
     return (
         <div className="space-y-6">
+            {/* Inbound Email Section */}
+            {user?.inboundEmail && (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="p-6 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <Mail className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-800">Inbound Email Address</h2>
+                                <p className="text-sm text-slate-500">Your unique address for receiving EDI files via email</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-6 bg-slate-50">
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="text"
+                                value={user.inboundEmail}
+                                readOnly
+                                className="flex-1 px-4 py-2.5 bg-gray-100 border border-slate-200 rounded-lg font-mono text-sm text-slate-600 cursor-not-allowed"
+                            />
+                            <button
+                                onClick={handleCopyEmail}
+                                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+                            >
+                                {copied ? (
+                                    <>
+                                        <Check className="w-4 h-4" />
+                                        Copied
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy className="w-4 h-4" />
+                                        Copy
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-3">
+                            Forward EDI files to this address. They'll be automatically converted and added to your account.
+                            Your routing rules will apply automatically.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">Integrations</h1>

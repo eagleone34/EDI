@@ -52,6 +52,7 @@ interface AuthUser {
     firstName?: string;
     lastName?: string;
     role?: string;
+    inboundEmail?: string;
 }
 
 interface AuthContextType {
@@ -96,8 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const fullName = [session.user.user_metadata?.first_name, session.user.user_metadata?.last_name]
                     .filter(Boolean).join(" ") || undefined;
                 syncUserToBackend(session.user.id, session.user.email || "", fullName).then(backendUser => {
-                    if (backendUser?.role) {
-                        setUser(prev => prev ? { ...prev, role: backendUser.role } : null);
+                    if (backendUser?.role || backendUser?.inbound_email) {
+                        setUser(prev => prev ? {
+                            ...prev,
+                            role: backendUser.role,
+                            inboundEmail: backendUser.inbound_email
+                        } : null);
                     }
                 });
             }
@@ -120,8 +125,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         .filter(Boolean).join(" ") || undefined;
 
                     syncUserToBackend(session.user.id, session.user.email || "", fullName).then(backendUser => {
-                        if (backendUser?.role) {
-                            setUser(prev => prev ? { ...prev, role: backendUser.role } : null);
+                        if (backendUser?.role || backendUser?.inbound_email) {
+                            setUser(prev => prev ? {
+                                ...prev,
+                                role: backendUser.role,
+                                inboundEmail: backendUser.inbound_email
+                            } : null);
                         }
                     });
                 } else {
