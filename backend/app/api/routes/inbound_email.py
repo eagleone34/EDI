@@ -243,66 +243,85 @@ def save_document_to_supabase(
     transaction_count: int = 1,
     source: str = "email"
 ) -> Optional[str]:
-    """Save converted document to Supabase documents table."""
+    """
+    Save converted document to database using direct connection.
+    This bypasses Supabase-py client to avoid PostgREST schema cache issues.
+    """
+    conn = None
     try:
-        import os
-        from supabase import create_client
+        doc_id = str(uuid.uuid4())
+        created_at = datetime.utcnow()
         
-        supabase_url = os.environ.get("SUPABASE_URL") or settings.SUPABASE_URL
-        supabase_key = os.environ.get("SUPABASE_SERVICE_KEY") or settings.SUPABASE_SERVICE_KEY
+        # Prepare data URLs
+        pdf_url = f"data:application/pdf;base64,{pdf_base64}" if pdf_base64 else None
+        excel_url = f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{excel_base64}" if excel_base64 else None
         
-        if not supabase_url or not supabase_key:
-            print("Supabase credentials not configured")
-            return None
-        
-        client = create_client(supabase_url, supabase_key)
-        
-        doc_data = {
-            "id": str(uuid.uuid4()),
-            "user_id": user_id,
-            "filename": filename,
-            "transaction_type": transaction_type,
-            "transaction_name": transaction_name,
-            "trading_partner": trading_partner,
-            "transaction_count": transaction_count,
-            "source": source,
-            "created_at": datetime.utcnow().isoformat(),
-        }
-        
-        print(f"Saving document to Supabase for user {user_id}...")
-        
-        # Store base64 data URLs
-        if pdf_base64:
-            doc_data["pdf_url"] = f"data:application/pdf;base64,{pdf_base64}"
-        if excel_base64:
-            doc_data["excel_url"] = f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{excel_base64}"
+        html_url = None
         if html_content:
-            # Handle both string and bytes
             if isinstance(html_content, str):
                 html_bytes = html_content.encode()
             else:
                 html_bytes = html_content
-                
             html_b64 = base64.b64encode(html_bytes).decode()
-            doc_data["html_url"] = f"data:text/html;base64,{html_b64}"
-            
-        print(f"Document payload prepared. Size: {len(str(doc_data))} bytes")
+            html_url = f"data:text/html;base64,{html_b64}"
+
+        print(f"Saving document to DB for user {user_id}...")
+
+        conn = get_db_connection()
+        cur = get_cursor(conn)
         
-        result = client.table("documents").insert(doc_data).execute()
+        cur.execute("""
+            INSERT INTO documents (
+                id,
+                user_id,
+                filename,
+                transaction_type,
+                transaction_name,
+                trading_partner,
+                transaction_count,
+                source,
+                created_at,
+                pdf_url,
+                excel_url,
+                html_url
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            ) RETURNING id
+        """, (
+            doc_id,
+            user_id,
+            filename,
+            transaction_type,
+            transaction_name,
+            trading_partner,
+            transaction_count,
+            source,
+            created_at,
+            pdf_url,
+            excel_url,
+            html_url
+        ))
         
-        if result.data:
-            doc_id = result.data[0].get("id")
-            print(f"Document saved successfully. ID: {doc_id}")
-            return doc_id
+        result = cur.fetchone()
+        conn.commit()
+        
+        if result:
+            saved_id = result['id']
+            print(f"Document saved successfully via direct DB. ID: {saved_id}")
+            return saved_id
             
-        print("Document insert returned no data")
         return None
         
     except Exception as e:
-        print(f"Error saving document to Supabase: {e}")
+        print(f"Error saving document to DB: {e}")
         import traceback
         traceback.print_exc()
+        if conn:
+            conn.rollback()
         return None
+    finally:
+        if conn:
+            conn.close()
 
 
 def send_error_email(to_email: str, filename: str, error_message: str):
