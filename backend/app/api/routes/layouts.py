@@ -62,6 +62,62 @@ async def get_segments(type_code: str):
     return result
 
 
+class SupportedType(BaseModel):
+    """Transaction type with availability status."""
+    code: str
+    name: str
+    available: bool  # True if PRODUCTION/LOCKED, False if DRAFT/NONE
+
+
+@router.get("/supported-types", response_model=List[SupportedType])
+async def get_supported_types():
+    """
+    Get all transaction types and their availability status.
+    Public endpoint - no auth required.
+    Returns 'available: true' for types with PRODUCTION or LOCKED status.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        
+        cur.execute("""
+            SELECT 
+                tt.code, 
+                tt.name,
+                lv.status
+            FROM transaction_types tt
+            LEFT JOIN layout_versions lv ON tt.code = lv.transaction_type_code 
+                AND lv.user_id IS NULL
+                AND lv.version_number = (
+                    SELECT MAX(version_number) 
+                    FROM layout_versions 
+                    WHERE transaction_type_code = tt.code AND user_id IS NULL
+                )
+            ORDER BY 
+                CASE WHEN lv.status IN ('PRODUCTION', 'LOCKED') THEN 0 ELSE 1 END,
+                tt.code;
+        """)
+        
+        results = cur.fetchall()
+        
+        return [
+            SupportedType(
+                code=row['code'],
+                name=row['name'],
+                available=row['status'] in ('PRODUCTION', 'LOCKED') if row['status'] else False
+            )
+            for row in results
+        ]
+        
+    except Exception as e:
+        print(f"Error fetching supported types: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
 @router.get("/", response_model=List[LayoutSummary])
 async def get_all_layouts(user_id: Optional[str] = None):
     """

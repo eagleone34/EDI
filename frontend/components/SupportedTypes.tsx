@@ -1,31 +1,18 @@
 "use client";
 
 /**
- * Shared component for displaying supported EDI transaction types
- * Use this component on both landing page and dashboard
- * UPDATE THIS FILE when adding new transaction types
+ * Dynamic component for displaying supported EDI transaction types
+ * Fetches from API - automatically updates when layouts change status
  */
 
-// Current supported types (available now)
-const CURRENT_TYPES = [
-    { code: "850", name: "Purchase Order" },
-    { code: "810", name: "Invoice" },
-    { code: "812", name: "Credit/Debit" },
-    { code: "856", name: "ASN" },
-    { code: "855", name: "PO Ack" },
-    { code: "997", name: "Func Ack" },
-];
+import { useState, useEffect } from "react";
+import { API_BASE_URL } from "@/lib/api-config";
 
-// Phase 2 types (coming soon)
-const COMING_SOON_TYPES = [
-    { code: "820", name: "Payment" },
-    { code: "860", name: "PO Change" },
-    { code: "861", name: "Receiving" },
-    { code: "870", name: "Status" },
-    { code: "830", name: "Planning" },
-    { code: "852", name: "POS Data" },
-    { code: "875/880", name: "Grocery" },
-];
+interface TransactionType {
+    code: string;
+    name: string;
+    available: boolean;
+}
 
 interface SupportedTypesProps {
     showLegend?: boolean;
@@ -33,12 +20,52 @@ interface SupportedTypesProps {
 }
 
 export function SupportedTypes({ showLegend = true, className = "" }: SupportedTypesProps) {
+    const [types, setTypes] = useState<TransactionType[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchTypes = async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/v1/layouts/supported-types`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setTypes(data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch supported types:", error);
+                // Fallback to empty - component will show nothing
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchTypes();
+    }, []);
+
+    // Separate available and coming soon types
+    const availableTypes = types.filter(t => t.available);
+    const comingSoonTypes = types.filter(t => !t.available);
+
+    if (isLoading) {
+        return (
+            <div className={className}>
+                <p className="text-xs text-slate-500 mb-2 font-medium">Supported Transaction Types:</p>
+                <div className="flex flex-wrap gap-2">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <span key={i} className="px-2.5 py-1 bg-slate-100 rounded-md text-xs animate-pulse">
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        </span>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={className}>
             <p className="text-xs text-slate-500 mb-2 font-medium">Supported Transaction Types:</p>
             <div className="flex flex-wrap gap-2">
-                {/* Current - Available Now */}
-                {CURRENT_TYPES.map((type) => (
+                {/* Available Now */}
+                {availableTypes.map((type) => (
                     <span
                         key={type.code}
                         className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium"
@@ -46,8 +73,8 @@ export function SupportedTypes({ showLegend = true, className = "" }: SupportedT
                         {type.code} {type.name}
                     </span>
                 ))}
-                {/* Phase 2 - Coming Soon */}
-                {COMING_SOON_TYPES.map((type) => (
+                {/* Coming Soon */}
+                {comingSoonTypes.map((type) => (
                     <span
                         key={type.code}
                         className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-md text-xs font-medium"
@@ -66,5 +93,15 @@ export function SupportedTypes({ showLegend = true, className = "" }: SupportedT
     );
 }
 
-// Export the types arrays for use in dropdowns, etc.
-export { CURRENT_TYPES, COMING_SOON_TYPES };
+// Export function to get types for dropdowns (fetch on demand)
+export async function fetchSupportedTypes(): Promise<TransactionType[]> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/layouts/supported-types`);
+        if (response.ok) {
+            return await response.json();
+        }
+    } catch (error) {
+        console.error("Failed to fetch supported types:", error);
+    }
+    return [];
+}
