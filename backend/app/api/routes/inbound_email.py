@@ -114,8 +114,11 @@ def lookup_user_by_inbound_email(inbound_email: str) -> Optional[dict]:
 
 def fetch_attachment_content(email_id: str, attachment_id: str) -> Optional[str]:
     """
-    Fetch attachment content from Resend API.
+    Fetch attachment content from Resend Receiving API.
     Returns base64 encoded content or None if failed.
+    
+    Uses: GET /emails/receiving/{email_id}/attachments to list all attachments
+    Then downloads using the download_url for the matching attachment.
     """
     try:
         import requests
@@ -124,23 +127,44 @@ def fetch_attachment_content(email_id: str, attachment_id: str) -> Optional[str]
             print("No Resend API key configured")
             return None
         
-        # Get attachment download URL from Resend
         headers = {"Authorization": f"Bearer {settings.RESEND_API_KEY}"}
         
-        # Resend API: GET /emails/{email_id}/attachments/{attachment_id}
-        url = f"https://api.resend.com/emails/{email_id}/attachments/{attachment_id}"
+        # Resend RECEIVING API: GET /emails/receiving/{email_id}/attachments
+        # Note: This is different from the sending API!
+        url = f"https://api.resend.com/emails/receiving/{email_id}/attachments"
+        print(f"Fetching attachments list from: {url}")
+        
         response = requests.get(url, headers=headers)
         
         if response.status_code != 200:
-            print(f"Failed to get attachment info: {response.status_code} - {response.text}")
+            print(f"Failed to list attachments: {response.status_code} - {response.text}")
             return None
         
         data = response.json()
-        download_url = data.get("download_url")
+        attachments_list = data.get("data", [])
         
+        # Find the attachment by ID
+        target_attachment = None
+        for att in attachments_list:
+            if att.get("id") == attachment_id:
+                target_attachment = att
+                break
+        
+        if not target_attachment:
+            print(f"Attachment {attachment_id} not found in list of {len(attachments_list)} attachments")
+            # If no ID match, try the first attachment (fallback)
+            if attachments_list:
+                target_attachment = attachments_list[0]
+                print(f"Using first attachment: {target_attachment.get('filename')}")
+            else:
+                return None
+        
+        download_url = target_attachment.get("download_url")
         if not download_url:
-            print("No download URL in attachment response")
+            print("No download_url in attachment")
             return None
+        
+        print(f"Downloading attachment from: {download_url[:50]}...")
         
         # Download the actual file content
         file_response = requests.get(download_url)
@@ -149,10 +173,14 @@ def fetch_attachment_content(email_id: str, attachment_id: str) -> Optional[str]
             return None
         
         # Return as base64 encoded string
-        return base64.b64encode(file_response.content).decode('utf-8')
+        content_b64 = base64.b64encode(file_response.content).decode('utf-8')
+        print(f"Successfully downloaded attachment ({len(file_response.content)} bytes)")
+        return content_b64
         
     except Exception as e:
         print(f"Error fetching attachment content: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
