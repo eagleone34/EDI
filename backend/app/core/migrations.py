@@ -1184,6 +1184,9 @@ def run_schema_migrations(conn, cur):
             ADD COLUMN IF NOT EXISTS source VARCHAR(50) DEFAULT 'web';
         """)
         
+        # Notify PostgREST to reload schema cache
+        cur.execute("NOTIFY pgrst, 'reload schema';")
+        
         conn.commit()
         logging.info("Schema migrations completed successfully.")
         return True
