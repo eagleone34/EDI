@@ -491,21 +491,28 @@ async def process_inbound_email(request: Request):
                 if not documents:
                     raise ValueError(f"No valid transactions found in {filename}")
                 
+                # Normalize documents to list for consistent handling
+                if not isinstance(documents, list):
+                    documents = [documents]
+                
                 # Generate outputs
                 pdf_generator = PDFGenerator()
                 excel_generator = ExcelGenerator()
                 html_generator = HTMLGenerator()
                 
+                # Pass single doc or list based on count
+                doc_to_convert = documents[0] if len(documents) == 1 else documents
+                
                 # Generate PDF
-                pdf_bytes = pdf_generator.generate(documents[0] if len(documents) == 1 else documents)
+                pdf_bytes = pdf_generator.generate(doc_to_convert)
                 pdf_base64 = base64.b64encode(pdf_bytes).decode() if pdf_bytes else None
                 
                 # Generate Excel
-                excel_bytes = excel_generator.generate(documents[0] if len(documents) == 1 else documents)
+                excel_bytes = excel_generator.generate(doc_to_convert)
                 excel_base64 = base64.b64encode(excel_bytes).decode() if excel_bytes else None
                 
                 # Generate HTML
-                html_content = html_generator.generate(documents[0] if len(documents) == 1 else documents)
+                html_content = html_generator.generate(doc_to_convert)
                 
                 # Extract trading partner from first document
                 trading_partner = None
