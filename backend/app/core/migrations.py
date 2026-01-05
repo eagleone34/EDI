@@ -1160,6 +1160,12 @@ def run_schema_migrations(conn, cur):
         cur.execute("CREATE INDEX IF NOT EXISTS idx_users_inbound_email ON users(inbound_email);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_email_routes_lookup ON email_routes(user_id, transaction_type);")
         
+        # 5. Add source column to documents (Fix for PGRST204)
+        cur.execute("""
+            ALTER TABLE documents 
+            ADD COLUMN IF NOT EXISTS source VARCHAR(50) DEFAULT 'web';
+        """)
+        
         conn.commit()
         logging.info("Schema migrations completed successfully.")
         return True
