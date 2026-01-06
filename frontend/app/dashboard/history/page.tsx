@@ -311,13 +311,14 @@ export default function HistoryPage() {
                                     Type <SortIcon field="transaction_type" />
                                 </th>
                                 <th
-                                    className="text-left px-3 py-3 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[18%]"
+                                    className="text-left px-3 py-3 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[16%]"
                                     onClick={() => handleSort("trading_partner")}
                                 >
                                     Customer <SortIcon field="trading_partner" />
                                 </th>
+                                <th className="text-left px-3 py-3 text-sm font-semibold text-slate-600 w-[8%]">Source</th>
                                 <th
-                                    className="text-left px-3 py-3 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[20%]"
+                                    className="text-left px-3 py-3 text-sm font-semibold text-slate-600 cursor-pointer hover:text-slate-900 w-[18%]"
                                     onClick={() => handleSort("created_at")}
                                 >
                                     Date <SortIcon field="created_at" />
@@ -350,6 +351,14 @@ export default function HistoryPage() {
                                         <p className="text-sm text-slate-600 truncate">
                                             {doc.trading_partner || <span className="text-slate-400">—</span>}
                                         </p>
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${doc.source === 'email'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : 'bg-slate-100 text-slate-600'
+                                            }`}>
+                                            {doc.source === 'email' ? '📧 Email' : '🌐 Web'}
+                                        </span>
                                     </td>
                                     <td className="px-3 py-3">
                                         <div className="flex items-center gap-1 text-sm text-slate-500">

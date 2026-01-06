@@ -49,6 +49,7 @@ export interface Document {
     transaction_name: string;
     transaction_count: number;
     trading_partner?: string;
+    source?: string;
     pdf_url?: string;
     excel_url?: string;
     html_url?: string;

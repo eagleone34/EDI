@@ -307,13 +307,14 @@ export default function TransactionsTable() {
                                     Type <SortIcon field="transaction_type" />
                                 </th>
                                 <th
-                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[15%]"
+                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[13%]"
                                     onClick={() => handleSort("trading_partner")}
                                 >
                                     Customer <SortIcon field="trading_partner" />
                                 </th>
+                                <th className="px-3 py-3 w-[8%]">Source</th>
                                 <th
-                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[38%]"
+                                    className="px-3 py-3 cursor-pointer hover:text-slate-700 select-none w-[32%]"
                                     onClick={() => handleSort("filename")}
                                 >
                                     Filename <SortIcon field="filename" />
@@ -344,6 +345,14 @@ export default function TransactionsTable() {
                                         <p className="text-slate-600 truncate">
                                             {doc.trading_partner || <span className="text-slate-400">—</span>}
                                         </p>
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${doc.source === 'email'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : 'bg-slate-100 text-slate-600'
+                                            }`}>
+                                            {doc.source === 'email' ? '📧 Email' : '🌐 Web'}
+                                        </span>
                                     </td>
                                     <td className="px-3 py-3 overflow-hidden">
                                         <p className="text-slate-600 font-medium truncate" title={doc.filename}>
