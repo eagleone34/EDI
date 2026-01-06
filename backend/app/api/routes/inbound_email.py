@@ -268,10 +268,18 @@ def save_document_to_supabase(
             html_b64 = base64.b64encode(html_bytes).decode()
             html_url = f"data:text/html;base64,{html_b64}"
 
-        print(f"Saving document to DB for user {user_id}...")
+        print(f"Saving document to Supabase DB for user {user_id}...")
 
-        conn = get_db_connection()
-        cur = get_cursor(conn)
+        # Use Supabase DB connection (same DB frontend uses) instead of Railway DB
+        supabase_db_url = settings.SUPABASE_DB_URL
+        if not supabase_db_url:
+            print("ERROR: SUPABASE_DB_URL not configured - falling back to DATABASE_URL")
+            supabase_db_url = settings.DATABASE_URL
+        
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        conn = psycopg2.connect(supabase_db_url)
+        cur = conn.cursor(cursor_factory=RealDictCursor)
         
         cur.execute("""
             INSERT INTO documents (

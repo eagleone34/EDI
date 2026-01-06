@@ -31,8 +31,12 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_SERVICE_KEY: str = ""
     
-    # Database
+    # Database - Railway Postgres (for internal backend tables)
     DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/edi_email"
+    
+    # Supabase Direct DB Connection (for documents table - same DB frontend uses)
+    # Set this in Railway env vars: postgresql://postgres:[password]@db.[project].supabase.co:5432/postgres
+    SUPABASE_DB_URL: str = ""
     
     # Redis  
     REDIS_URL: str = "redis://localhost:6379"
