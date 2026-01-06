@@ -203,7 +203,7 @@ async def convert_edi_file(
             # Smart detection info
             "detectedType": detected_type,
             "selectedType": transaction_type,
-            "typeMismatch": type_mismatch,
+            "typeMismatch": detected_type != transaction_type,
             # Trading partner info
             "tradingPartner": trading_partner,
         }
