@@ -64,39 +64,45 @@ async def convert_edi_file(
                 detail=f"Invalid format '{fmt}'. Allowed: {', '.join(allowed_formats)}"
             )
     
-    # Validate transaction type
-    allowed_types = ["850", "810", "812", "856", "855", "997"]
+    # Validate transaction type - ALL 17 SUPPORTED TYPES
+    allowed_types = [
+        "810", "812", "816", "820", "824", "830", "850", "852",
+        "855", "856", "860", "861", "864", "870", "875", "880", "997"
+    ]
     if transaction_type not in allowed_types:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid transaction type '{transaction_type}'. Allowed: {', '.join(allowed_types)}"
-        )
+            detail=f"Invalid transaction type '{transaction_type}'. Allowed: {', '.join(allowed_types)}")
     
     try:
         # Read file content
         content = await file.read()
         content_str = content.decode("utf-8", errors="ignore")
         
-        # SMART DETECTION: Auto-detect the actual document type from the file
+        # STRICT DETECTION: Auto-detect from file content
         detected_type = detect_transaction_type(content_str)
-        type_mismatch = detected_type != transaction_type
         warning_message = None
         
-        # If mismatch detected, use the CORRECT parser automatically
-        actual_type = detected_type if detected_type in allowed_types else transaction_type
-        
-        if type_mismatch and detected_type in allowed_types:
-            warning_message = (
-                f"Document type mismatch detected! You selected {transaction_type}, "
-                f"but the file contains {detected_type} documents. "
-                f"We've automatically processed it as {detected_type} for accurate results."
+        # STRICT: Fail if we cannot detect the transaction type
+        if not detected_type:
+            raise HTTPException(
+                status_code=422,
+                detail="Could not detect EDI transaction type. Ensure the file contains a valid ST segment (e.g., ST*850*0001)."
             )
-        elif type_mismatch:
-            # Detected type not supported, fall back to user selection
-            actual_type = transaction_type
+        
+        # STRICT: Fail if detected type is not supported
+        if detected_type not in allowed_types:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unsupported EDI transaction type '{detected_type}'. Supported types: {', '.join(allowed_types)}"
+            )
+        
+        # Use detected type (auto-correct if user selected wrong type)
+        actual_type = detected_type
+        if detected_type != transaction_type:
             warning_message = (
-                f"Could not auto-detect a supported document type. "
-                f"Processing as {transaction_type} as selected."
+                f"Document type mismatch: You selected {transaction_type}, "
+                f"but file contains {detected_type}. Processed as {detected_type}."
             )
         
         # Get parser for the ACTUAL transaction type (auto-corrected if needed)
@@ -120,32 +126,27 @@ async def convert_edi_file(
         # Generate outputs - combine all documents into single files
         outputs = {}
         
-        # Fetch dynamic layout config once for all formats
+        # Fetch dynamic layout config - REQUIRED (no legacy fallback)
         # Pass user_id so users get their own layout if they have one
         from app.services.layout_service import LayoutService
         from app.generators.dynamic_generator import DynamicGenerator
         layout_config = LayoutService.get_active_layout(actual_type, user_id)
         
+        # STRICT: Layout MUST exist - no legacy fallback
+        if not layout_config:
+            raise HTTPException(
+                status_code=500,
+                detail=f"No approved layout found for transaction type '{actual_type}'. Please contact support to add this layout."
+            )
+        
+        dynamic_gen = DynamicGenerator(layout_config)
+        
         if "pdf" in format_list:
-            if layout_config:
-                # Use dynamic generator with layout config
-                dynamic_gen = DynamicGenerator(layout_config)
-                pdf_bytes = dynamic_gen.generate_pdf(documents)
-            else:
-                # Fallback to legacy PDF generator
-                pdf_gen = PDFGenerator()
-                pdf_bytes = pdf_gen.generate_all(documents)
+            pdf_bytes = dynamic_gen.generate_pdf(documents)
             outputs["pdf"] = base64.b64encode(pdf_bytes).decode("utf-8")
         
         if "excel" in format_list:
-            if layout_config:
-                # Use dynamic generator with layout config
-                dynamic_gen = DynamicGenerator(layout_config)
-                excel_bytes = dynamic_gen.generate_excel(documents)
-            else:
-                # Fallback to legacy Excel generator
-                excel_gen = ExcelGenerator()
-                excel_bytes = excel_gen.generate_all(documents)
+            excel_bytes = dynamic_gen.generate_excel(documents)
             outputs["excel"] = base64.b64encode(excel_bytes).decode("utf-8")
         
         if "html" in format_list:
@@ -388,7 +389,8 @@ def detect_transaction_type(content: str) -> str:
             if len(parts) >= 2:
                 return parts[1]
     
-    return "850"  # Default to Purchase Order
+    # STRICT: Do NOT default to 850 - return None to force explicit error
+    return None
 
 
 @router.get("/{conversion_id}")

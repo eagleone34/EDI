@@ -545,22 +545,18 @@ async def process_inbound_email(request: Request):
                 # Fetch dynamic layout config (user-specific or SYSTEM default)
                 layout_config = LayoutService.get_active_layout(transaction_type, user_id)
                 
+                # STRICT: Layout MUST exist - no legacy fallback
+                if not layout_config:
+                    raise ValueError(f"No approved layout found for transaction type '{transaction_type}'. Cannot process.")
+                
+                dynamic_gen = DynamicGenerator(layout_config)
+                
                 # Generate PDF
-                if layout_config:
-                    dynamic_gen = DynamicGenerator(layout_config)
-                    pdf_bytes = dynamic_gen.generate_pdf(documents)
-                else:
-                    pdf_gen = PDFGenerator()
-                    pdf_bytes = pdf_gen.generate_all(documents)
+                pdf_bytes = dynamic_gen.generate_pdf(documents)
                 pdf_base64 = base64.b64encode(pdf_bytes).decode() if pdf_bytes else None
                 
                 # Generate Excel
-                if layout_config:
-                    dynamic_gen = DynamicGenerator(layout_config)
-                    excel_bytes = dynamic_gen.generate_excel(documents)
-                else:
-                    excel_gen = ExcelGenerator()
-                    excel_bytes = excel_gen.generate_all(documents)
+                excel_bytes = dynamic_gen.generate_excel(documents)
                 excel_base64 = base64.b64encode(excel_bytes).decode() if excel_bytes else None
                 
                 # Generate HTML - use premium combined HTML (same as convert.py)
@@ -651,22 +647,18 @@ async def process_inbound_email(request: Request):
                             # === Generate outputs using same logic as convert.py ===
                             layout_config = LayoutService.get_active_layout(transaction_type, user_id)
                             
+                            # STRICT: Layout MUST exist - no legacy fallback
+                            if not layout_config:
+                                raise ValueError(f"No approved layout found for transaction type '{transaction_type}'. Cannot process.")
+                            
+                            dynamic_gen = DynamicGenerator(layout_config)
+                            
                             # Generate PDF
-                            if layout_config:
-                                dynamic_gen = DynamicGenerator(layout_config)
-                                pdf_bytes = dynamic_gen.generate_pdf(documents)
-                            else:
-                                pdf_gen = PDFGenerator()
-                                pdf_bytes = pdf_gen.generate_all(documents)
+                            pdf_bytes = dynamic_gen.generate_pdf(documents)
                             pdf_base64 = base64.b64encode(pdf_bytes).decode() if pdf_bytes else None
                             
                             # Generate Excel
-                            if layout_config:
-                                dynamic_gen = DynamicGenerator(layout_config)
-                                excel_bytes = dynamic_gen.generate_excel(documents)
-                            else:
-                                excel_gen = ExcelGenerator()
-                                excel_bytes = excel_gen.generate_all(documents)
+                            excel_bytes = dynamic_gen.generate_excel(documents)
                             excel_base64 = base64.b64encode(excel_bytes).decode() if excel_bytes else None
                             
                             # Generate HTML - use premium combined HTML
