@@ -22,6 +22,9 @@ from app.parsers import get_parser
 from app.generators.pdf_generator import PDFGenerator
 from app.generators.excel_generator import ExcelGenerator
 from app.generators.html_generator import HTMLGenerator
+from app.services.layout_service import LayoutService
+from app.generators.dynamic_generator import DynamicGenerator
+from app.api.routes.convert import generate_combined_html
 from app.db import get_db_connection, get_cursor
 
 router = APIRouter()
@@ -530,31 +533,53 @@ async def process_inbound_email(request: Request):
                 if not isinstance(documents, list):
                     documents = [documents]
                 
-                # Generate outputs
-                pdf_generator = PDFGenerator()
-                excel_generator = ExcelGenerator()
-                html_generator = HTMLGenerator()
-                
-                # Pass single doc or list based on count
-                doc_to_convert = documents[0] if len(documents) == 1 else documents
+                # === Generate outputs using same logic as convert.py ===
+                # Fetch dynamic layout config (user-specific or SYSTEM default)
+                layout_config = LayoutService.get_active_layout(transaction_type, user_id)
                 
                 # Generate PDF
-                pdf_bytes = pdf_generator.generate(doc_to_convert)
+                if layout_config:
+                    dynamic_gen = DynamicGenerator(layout_config)
+                    pdf_bytes = dynamic_gen.generate_pdf(documents)
+                else:
+                    pdf_gen = PDFGenerator()
+                    pdf_bytes = pdf_gen.generate_all(documents)
                 pdf_base64 = base64.b64encode(pdf_bytes).decode() if pdf_bytes else None
                 
                 # Generate Excel
-                excel_bytes = excel_generator.generate(doc_to_convert)
+                if layout_config:
+                    dynamic_gen = DynamicGenerator(layout_config)
+                    excel_bytes = dynamic_gen.generate_excel(documents)
+                else:
+                    excel_gen = ExcelGenerator()
+                    excel_bytes = excel_gen.generate_all(documents)
                 excel_base64 = base64.b64encode(excel_bytes).decode() if excel_bytes else None
                 
-                # Generate HTML
-                html_content = html_generator.generate(doc_to_convert)
+                # Generate HTML - use premium combined HTML (same as convert.py)
+                html_gen = HTMLGenerator()
+                html_bytes = generate_combined_html(documents, html_gen, user_id)
+                html_content = html_bytes.decode('utf-8') if html_bytes else None
                 
-                # Extract trading partner from first document
+                # Extract trading partner from first document (same logic as convert.py)
                 trading_partner = None
                 if documents:
-                    first_doc = documents[0] if isinstance(documents, list) else documents
-                    if hasattr(first_doc, 'get'):
-                        trading_partner = first_doc.get("trading_partner") or first_doc.get("sender_name")
+                    first_doc = documents[0]
+                    if hasattr(first_doc, 'header'):
+                        parties = first_doc.header.get("parties", [])
+                        for party in parties:
+                            if party.get("type_code") in ["BY", "ST", "VN", "SE"]:
+                                if party.get("name"):
+                                    trading_partner = party.get("name")
+                                    break
+                        # Fallback: use first party with a name
+                        if not trading_partner and parties:
+                            for party in parties:
+                                if party.get("name"):
+                                    trading_partner = party.get("name")
+                                    break
+                        # If still no trading partner, try sender_id
+                        if not trading_partner and hasattr(first_doc, 'sender_id') and first_doc.sender_id:
+                            trading_partner = first_doc.sender_id
                 
                 transaction_name = TRANSACTION_TYPE_NAMES.get(transaction_type, f"EDI {transaction_type}")
                 
@@ -611,17 +636,52 @@ async def process_inbound_email(request: Request):
                     if parser:
                         documents = parser.parse(content)
                         if documents:
-                            # Generate outputs
-                            pdf_generator = PDFGenerator()
-                            pdf_bytes = pdf_generator.generate(documents[0] if len(documents) == 1 else documents)
+                            # Normalize to list
+                            if not isinstance(documents, list):
+                                documents = [documents]
+                            
+                            # === Generate outputs using same logic as convert.py ===
+                            layout_config = LayoutService.get_active_layout(transaction_type, user_id)
+                            
+                            # Generate PDF
+                            if layout_config:
+                                dynamic_gen = DynamicGenerator(layout_config)
+                                pdf_bytes = dynamic_gen.generate_pdf(documents)
+                            else:
+                                pdf_gen = PDFGenerator()
+                                pdf_bytes = pdf_gen.generate_all(documents)
                             pdf_base64 = base64.b64encode(pdf_bytes).decode() if pdf_bytes else None
                             
-                            excel_generator = ExcelGenerator()
-                            excel_bytes = excel_generator.generate(documents[0] if len(documents) == 1 else documents)
+                            # Generate Excel
+                            if layout_config:
+                                dynamic_gen = DynamicGenerator(layout_config)
+                                excel_bytes = dynamic_gen.generate_excel(documents)
+                            else:
+                                excel_gen = ExcelGenerator()
+                                excel_bytes = excel_gen.generate_all(documents)
                             excel_base64 = base64.b64encode(excel_bytes).decode() if excel_bytes else None
                             
-                            html_generator = HTMLGenerator()
-                            html_content = html_generator.generate(documents[0] if len(documents) == 1 else documents)
+                            # Generate HTML - use premium combined HTML
+                            html_gen = HTMLGenerator()
+                            html_bytes = generate_combined_html(documents, html_gen, user_id)
+                            html_content = html_bytes.decode('utf-8') if html_bytes else None
+                            
+                            # Extract trading partner
+                            trading_partner = None
+                            if documents:
+                                first_doc = documents[0]
+                                if hasattr(first_doc, 'header'):
+                                    parties = first_doc.header.get("parties", [])
+                                    for party in parties:
+                                        if party.get("type_code") in ["BY", "ST", "VN", "SE"]:
+                                            if party.get("name"):
+                                                trading_partner = party.get("name")
+                                                break
+                                    if not trading_partner and parties:
+                                        for party in parties:
+                                            if party.get("name"):
+                                                trading_partner = party.get("name")
+                                                break
                             
                             transaction_name = TRANSACTION_TYPE_NAMES.get(transaction_type, f"EDI {transaction_type}")
                             
@@ -630,7 +690,7 @@ async def process_inbound_email(request: Request):
                                 filename="email_body.edi",
                                 transaction_type=transaction_type,
                                 transaction_name=transaction_name,
-                                trading_partner=None,
+                                trading_partner=trading_partner,
                                 pdf_base64=pdf_base64,
                                 excel_base64=excel_base64,
                                 html_content=html_content,
@@ -647,6 +707,7 @@ async def process_inbound_email(request: Request):
                                     transaction_name=transaction_name,
                                     pdf_base64=pdf_base64,
                                     excel_base64=excel_base64,
+                                    trading_partner=trading_partner,
                                 )
                             
                             processed_count += 1
