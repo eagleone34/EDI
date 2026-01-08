@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Rocket, Code, Palette, RotateCcw, ChevronDown } from "lucide-react";
+import { ArrowLeft, Loader2, Rocket, Code, Palette, RotateCcw, ChevronDown, History, Clock, ArrowUpCircle } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import VisualLayoutEditor, { LayoutConfig } from "@/components/admin/VisualLayoutEditor";
 
@@ -23,6 +23,14 @@ interface SegmentMapping {
     description: string;
 }
 
+interface VersionSummary {
+    version_number: number;
+    status: string;
+    is_active: boolean;
+    updated_at: string | null;
+    created_by: string | null;
+}
+
 import { useAuth } from "@/lib/auth-context";
 
 export default function EditLayoutPage({ params }: { params: Promise<{ type: string }> }) {
@@ -38,6 +46,9 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
     const [editorMode, setEditorMode] = useState<"visual" | "json">("visual");
     const [jsonText, setJsonText] = useState("");
     const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [showHistory, setShowHistory] = useState(false);
+    const [versionHistory, setVersionHistory] = useState<VersionSummary[]>([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
     useEffect(() => {
         if (!authLoading && user) {
@@ -141,6 +152,52 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
         }
     };
 
+    const fetchHistory = async () => {
+        setIsLoadingHistory(true);
+        try {
+            let url = `${API_BASE_URL}/api/v1/layouts/${typeCode}/history`;
+            if (user?.role === 'user') {
+                url += `?user_id=${user.id}`;
+            }
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Failed to fetch history");
+            const data = await response.json();
+            setVersionHistory(data);
+        } catch (err) {
+            console.error("Error fetching history:", err);
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    };
+
+    const handleRollback = async (versionNumber: number) => {
+        if (!confirm(`Rollback to version ${versionNumber}? This will create a new DRAFT.`)) return;
+        try {
+            let url = `${API_BASE_URL}/api/v1/layouts/${typeCode}/rollback`;
+            if (user?.role === 'user') {
+                url += `?user_id=${user.id}`;
+            }
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ version_number: versionNumber }),
+            });
+            if (!response.ok) throw new Error("Failed to rollback");
+            const data = await response.json();
+            setSaveMessage({ type: "success", text: data.message });
+            setShowHistory(false);
+            fetchLayout();
+            fetchHistory();
+        } catch (err) {
+            setSaveMessage({ type: "error", text: err instanceof Error ? err.message : "Rollback failed" });
+        }
+    };
+
+    const openHistory = () => {
+        setShowHistory(true);
+        fetchHistory();
+    };
+
     const handleRestore = async () => {
         if (!confirm("Are you sure? This will delete your custom layout and revert to the system default.")) return;
         try {
@@ -224,6 +281,15 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
                         </button>
                     </div>
 
+                    {/* History Button */}
+                    <button
+                        onClick={openHistory}
+                        className="px-3 py-2 border border-slate-300 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium flex items-center gap-2"
+                    >
+                        <History className="w-4 h-4" />
+                        History
+                    </button>
+
                     {/* Status Dropdown - Superadmin Only */}
                     {user?.role === 'superadmin' && (
                         <div className="relative">
@@ -301,6 +367,85 @@ export default function EditLayoutPage({ params }: { params: Promise<{ type: str
                     </div>
                 )}
             </div>
+
+            {/* Version History Modal */}
+            {showHistory && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                                <History className="w-5 h-5 text-blue-600" />
+                                Version History - {typeCode}
+                            </h3>
+                            <button
+                                onClick={() => setShowHistory(false)}
+                                className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto max-h-[60vh]">
+                            {isLoadingHistory ? (
+                                <div className="flex justify-center py-8">
+                                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                                </div>
+                            ) : versionHistory.length === 0 ? (
+                                <p className="text-center text-slate-500 py-8">No version history found.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {versionHistory.map((version) => (
+                                        <div
+                                            key={version.version_number}
+                                            className={`flex items-center justify-between p-4 rounded-lg border ${version.is_active
+                                                    ? "border-green-200 bg-green-50"
+                                                    : "border-slate-200 bg-slate-50"
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${version.is_active
+                                                        ? "bg-green-600 text-white"
+                                                        : "bg-slate-200 text-slate-600"
+                                                    }`}>
+                                                    v{version.version_number}
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${version.status === "PRODUCTION" ? "bg-green-100 text-green-700" :
+                                                                version.status === "DRAFT" ? "bg-amber-100 text-amber-700" :
+                                                                    version.status === "ARCHIVED" ? "bg-slate-100 text-slate-500" :
+                                                                        "bg-purple-100 text-purple-700"
+                                                            }`}>
+                                                            {version.status}
+                                                        </span>
+                                                        {version.is_active && (
+                                                            <span className="text-xs text-green-600 font-medium">CURRENT</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+                                                        <Clock className="w-3 h-3" />
+                                                        {version.updated_at ? new Date(version.updated_at).toLocaleString() : "Unknown"}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {!version.is_active && version.status !== "DRAFT" && (
+                                                <button
+                                                    onClick={() => handleRollback(version.version_number)}
+                                                    className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-1"
+                                                >
+                                                    <ArrowUpCircle className="w-4 h-4" />
+                                                    Rollback
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -803,3 +803,141 @@ async def cleanup_layouts():
     finally:
         if conn:
             conn.close()
+
+
+# ==================== VERSION HISTORY & ROLLBACK ====================
+
+class VersionSummary(BaseModel):
+    """Summary of a layout version for history view."""
+    version_number: int
+    status: str
+    is_active: bool
+    updated_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+
+
+@router.get("/{type_code}/history", response_model=List[VersionSummary])
+async def get_version_history(type_code: str, user_id: Optional[str] = None):
+    """
+    Get the version history for a layout.
+    - If user_id provided: Returns user's version history
+    - If user_id None: Returns system version history
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        
+        if user_id:
+            # User's versions only
+            cur.execute("""
+                SELECT version_number, status, is_active, updated_at, created_by
+                FROM layout_versions 
+                WHERE transaction_type_code = %s AND user_id = %s
+                ORDER BY version_number DESC
+            """, (type_code, user_id))
+        else:
+            # System versions only
+            cur.execute("""
+                SELECT version_number, status, is_active, updated_at, created_by
+                FROM layout_versions 
+                WHERE transaction_type_code = %s AND user_id IS NULL
+                ORDER BY version_number DESC
+            """, (type_code,))
+        
+        results = cur.fetchall()
+        
+        return [
+            VersionSummary(
+                version_number=row['version_number'],
+                status=row['status'],
+                is_active=row['is_active'],
+                updated_at=row['updated_at'],
+                created_by=row['created_by']
+            )
+            for row in results
+        ]
+        
+    except Exception as e:
+        print(f"Error fetching version history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
+class RollbackRequest(BaseModel):
+    """Request body for rollback."""
+    version_number: int
+
+
+@router.post("/{type_code}/rollback", response_model=PromoteResponse)
+async def rollback_to_version(type_code: str, request: RollbackRequest, user_id: Optional[str] = None):
+    """
+    Rollback to a specific version.
+    - Copies the config from the specified version to a new DRAFT
+    - Previous versions are preserved
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        
+        # Build scope filter
+        if user_id:
+            scope_filter = "AND user_id = %s"
+            scope_params = (type_code, request.version_number, user_id)
+        else:
+            scope_filter = "AND user_id IS NULL"
+            scope_params = (type_code, request.version_number)
+        
+        # Get the config from the target version
+        cur.execute(f"""
+            SELECT config_json, version_number
+            FROM layout_versions 
+            WHERE transaction_type_code = %s AND version_number = %s {scope_filter}
+        """, scope_params)
+        
+        target_version = cur.fetchone()
+        if not target_version:
+            raise HTTPException(status_code=404, detail=f"Version {request.version_number} not found")
+        
+        # Get the max version number to create a new one
+        cur.execute("""
+            SELECT COALESCE(MAX(version_number), 0) as max_version 
+            FROM layout_versions 
+            WHERE transaction_type_code = %s
+        """, (type_code,))
+        max_ver = cur.fetchone()['max_version']
+        new_version = max_ver + 1
+        
+        # Create a new DRAFT with the rolled-back config
+        creator = user_id if user_id else 'admin'
+        cur.execute("""
+            INSERT INTO layout_versions 
+            (transaction_type_code, version_number, status, config_json, is_active, created_by, updated_at, user_id)
+            VALUES (%s, %s, 'DRAFT', %s, false, %s, NOW(), %s)
+            RETURNING version_number
+        """, (type_code, new_version, json.dumps(target_version['config_json']), creator, user_id))
+        
+        result = cur.fetchone()
+        conn.commit()
+        
+        return PromoteResponse(
+            success=True,
+            message=f"Created new DRAFT v{new_version} from v{request.version_number}. Promote it to make it live.",
+            code=type_code,
+            version_number=result['version_number'],
+            status="DRAFT"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Error rolling back: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
