@@ -96,15 +96,6 @@ export default function AdminLayoutsPage() {
                         Configure the HTML/PDF output format for each EDI transaction type.
                     </p>
                 </div>
-                {user?.role === 'superadmin' && (
-                    <Link
-                        href="/dashboard/admin/users"
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
-                    >
-                        <Users className="w-4 h-4" />
-                        Manage Users
-                    </Link>
-                )}
             </div>
 
             {/* Stats */}

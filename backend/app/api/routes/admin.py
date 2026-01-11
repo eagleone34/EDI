@@ -117,56 +117,32 @@ def log_activity(
 async def get_overview_stats():
     """Get platform overview statistics (superadmin only)."""
     conn = None
+    supabase_conn = None
     try:
+        from app.core.config import settings
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        
         conn = get_db_connection()
         cur = get_cursor(conn)
         
-        # Total users
+        # Total users from Railway DB
         cur.execute("SELECT COUNT(*) as count FROM users")
         total_users = cur.fetchone()["count"]
         
-        # Active users (users with activity in last 7 days)
+        # Active users (users with last_active_at in last 7 days)
         cur.execute("""
-            SELECT COUNT(DISTINCT user_id) as count 
-            FROM activity_log 
-            WHERE created_at > NOW() - INTERVAL '7 days'
+            SELECT COUNT(*) as count FROM users
+            WHERE last_active_at > NOW() - INTERVAL '7 days'
         """)
         active_7d = cur.fetchone()["count"]
         
         # Active users (last 30 days)
         cur.execute("""
-            SELECT COUNT(DISTINCT user_id) as count 
-            FROM activity_log 
-            WHERE created_at > NOW() - INTERVAL '30 days'
+            SELECT COUNT(*) as count FROM users
+            WHERE last_active_at > NOW() - INTERVAL '30 days'
         """)
         active_30d = cur.fetchone()["count"]
-        
-        # Total conversions from activity log
-        cur.execute("""
-            SELECT COUNT(*) as count FROM activity_log WHERE action = 'conversion'
-        """)
-        total_conversions = cur.fetchone()["count"]
-        
-        # Conversions today
-        cur.execute("""
-            SELECT COUNT(*) as count FROM activity_log 
-            WHERE action = 'conversion' AND created_at > CURRENT_DATE
-        """)
-        conversions_today = cur.fetchone()["count"]
-        
-        # Conversions this week
-        cur.execute("""
-            SELECT COUNT(*) as count FROM activity_log 
-            WHERE action = 'conversion' AND created_at > NOW() - INTERVAL '7 days'
-        """)
-        conversions_week = cur.fetchone()["count"]
-        
-        # Conversions this month
-        cur.execute("""
-            SELECT COUNT(*) as count FROM activity_log 
-            WHERE action = 'conversion' AND created_at > NOW() - INTERVAL '30 days'
-        """)
-        conversions_month = cur.fetchone()["count"]
         
         # New users this week
         cur.execute("""
@@ -174,6 +150,49 @@ async def get_overview_stats():
             WHERE created_at > NOW() - INTERVAL '7 days'
         """)
         new_users_7d = cur.fetchone()["count"]
+        
+        # Get conversion stats from Supabase documents table
+        total_conversions = 0
+        conversions_today = 0
+        conversions_week = 0
+        conversions_month = 0
+        
+        supabase_db_url = settings.SUPABASE_DB_URL
+        if supabase_db_url:
+            try:
+                supabase_conn = psycopg2.connect(supabase_db_url)
+                supabase_cur = supabase_conn.cursor(cursor_factory=RealDictCursor)
+                
+                # Total conversions
+                supabase_cur.execute("SELECT COUNT(*) as count FROM documents")
+                total_conversions = supabase_cur.fetchone()["count"]
+                
+                # Conversions today
+                supabase_cur.execute("""
+                    SELECT COUNT(*) as count FROM documents 
+                    WHERE created_at > CURRENT_DATE
+                """)
+                conversions_today = supabase_cur.fetchone()["count"]
+                
+                # Conversions this week
+                supabase_cur.execute("""
+                    SELECT COUNT(*) as count FROM documents 
+                    WHERE created_at > NOW() - INTERVAL '7 days'
+                """)
+                conversions_week = supabase_cur.fetchone()["count"]
+                
+                # Conversions this month
+                supabase_cur.execute("""
+                    SELECT COUNT(*) as count FROM documents 
+                    WHERE created_at > NOW() - INTERVAL '30 days'
+                """)
+                conversions_month = supabase_cur.fetchone()["count"]
+                
+            except Exception as e:
+                print(f"Error querying Supabase: {e}")
+            finally:
+                if supabase_conn:
+                    supabase_conn.close()
         
         return OverviewStats(
             total_users=total_users,
@@ -198,21 +217,28 @@ async def get_overview_stats():
 async def get_conversions_by_type(
     days: int = Query(30, ge=1, le=365, description="Number of days to look back")
 ):
-    """Get conversion breakdown by transaction type."""
-    conn = None
+    """Get conversion breakdown by transaction type from Supabase documents."""
+    supabase_conn = None
     try:
-        conn = get_db_connection()
-        cur = get_cursor(conn)
+        from app.core.config import settings
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        
+        supabase_db_url = settings.SUPABASE_DB_URL
+        if not supabase_db_url:
+            return []
+        
+        supabase_conn = psycopg2.connect(supabase_db_url)
+        cur = supabase_conn.cursor(cursor_factory=RealDictCursor)
         
         cur.execute("""
             SELECT 
-                details->>'transaction_type' as transaction_type,
+                transaction_type,
                 COUNT(*) as count
-            FROM activity_log 
-            WHERE action = 'conversion' 
-              AND created_at > NOW() - INTERVAL '%s days'
-              AND details->>'transaction_type' IS NOT NULL
-            GROUP BY details->>'transaction_type'
+            FROM documents 
+            WHERE created_at > NOW() - INTERVAL '%s days'
+              AND transaction_type IS NOT NULL
+            GROUP BY transaction_type
             ORDER BY count DESC
         """, (days,))
         
@@ -232,8 +258,8 @@ async def get_conversions_by_type(
         print(f"Error fetching conversions by type: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            conn.close()
+        if supabase_conn:
+            supabase_conn.close()
 
 
 @router.get("/stats/activity", response_model=List[ActivityItem])
@@ -362,9 +388,20 @@ async def get_system_health():
         cur.execute("SELECT COUNT(*) as count FROM users")
         total_users = cur.fetchone()["count"]
         
-        # Total conversions
-        cur.execute("SELECT COUNT(*) as count FROM activity_log WHERE action = 'conversion'")
-        total_conversions = cur.fetchone()["count"]
+        # Total conversions from Supabase
+        total_conversions = 0
+        try:
+            from app.core.config import settings
+            import psycopg2 as pg
+            from psycopg2.extras import RealDictCursor as RDC
+            if settings.SUPABASE_DB_URL:
+                supa_conn = pg.connect(settings.SUPABASE_DB_URL)
+                supa_cur = supa_conn.cursor(cursor_factory=RDC)
+                supa_cur.execute("SELECT COUNT(*) as count FROM documents")
+                total_conversions = supa_cur.fetchone()["count"]
+                supa_conn.close()
+        except Exception as se:
+            print(f"Error getting Supabase conversions: {se}")
         
         # Email errors in last 24h
         cur.execute("""
