@@ -445,23 +445,102 @@ async def get_system_health():
     )
 
 
-@router.get("/stats/daily-conversions")
-async def get_daily_conversions(
-    days: int = Query(30, ge=1, le=90, description="Number of days")
+@router.get("/stats/recent-conversions")
+async def get_recent_conversions(
+    limit: int = Query(50, ge=1, le=200, description="Number of records")
 ):
-    """Get daily conversion counts for charting."""
+    """Get recent conversions with user details from Supabase."""
+    supabase_conn = None
     conn = None
     try:
+        from app.core.config import settings
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        
+        supabase_db_url = settings.SUPABASE_DB_URL
+        if not supabase_db_url:
+            return []
+        
+        # Get documents from Supabase
+        supabase_conn = psycopg2.connect(supabase_db_url)
+        supabase_cur = supabase_conn.cursor(cursor_factory=RealDictCursor)
+        
+        supabase_cur.execute("""
+            SELECT 
+                id, user_id, filename, transaction_type, transaction_name,
+                trading_partner, source, created_at
+            FROM documents
+            ORDER BY created_at DESC
+            LIMIT %s
+        """, (limit,))
+        
+        documents = supabase_cur.fetchall()
+        
+        # Get user names from Railway DB
         conn = get_db_connection()
         cur = get_cursor(conn)
+        
+        # Build user lookup
+        user_ids = list(set(d["user_id"] for d in documents if d["user_id"]))
+        user_names = {}
+        
+        if user_ids:
+            placeholders = ",".join(["%s"] * len(user_ids))
+            cur.execute(f"""
+                SELECT id, name, email FROM users WHERE id IN ({placeholders})
+            """, user_ids)
+            for u in cur.fetchall():
+                user_names[u["id"]] = u["name"] or u["email"].split("@")[0]
+        
+        return [
+            {
+                "id": d["id"],
+                "user_id": d["user_id"],
+                "user_name": user_names.get(d["user_id"], "Unknown"),
+                "transaction_type": d["transaction_type"],
+                "transaction_name": d["transaction_name"],
+                "filename": d["filename"],
+                "trading_partner": d["trading_partner"],
+                "source": d["source"] or "upload",
+                "created_at": d["created_at"].isoformat() if d["created_at"] else None
+            }
+            for d in documents
+        ]
+        
+    except Exception as e:
+        print(f"Error fetching recent conversions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if supabase_conn:
+            supabase_conn.close()
+        if conn:
+            conn.close()
+
+
+@router.get("/stats/daily-conversions")
+async def get_daily_conversions(
+    days: int = Query(14, ge=1, le=90, description="Number of days")
+):
+    """Get daily conversion counts from Supabase documents."""
+    supabase_conn = None
+    try:
+        from app.core.config import settings
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        
+        supabase_db_url = settings.SUPABASE_DB_URL
+        if not supabase_db_url:
+            return []
+        
+        supabase_conn = psycopg2.connect(supabase_db_url)
+        cur = supabase_conn.cursor(cursor_factory=RealDictCursor)
         
         cur.execute("""
             SELECT 
                 DATE(created_at) as date,
                 COUNT(*) as count
-            FROM activity_log
-            WHERE action = 'conversion'
-              AND created_at > NOW() - INTERVAL '%s days'
+            FROM documents
+            WHERE created_at > NOW() - INTERVAL '%s days'
             GROUP BY DATE(created_at)
             ORDER BY date ASC
         """, (days,))
@@ -477,5 +556,5 @@ async def get_daily_conversions(
         print(f"Error fetching daily conversions: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            conn.close()
+        if supabase_conn:
+            supabase_conn.close()

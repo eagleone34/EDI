@@ -60,6 +60,18 @@ interface DailyConversion {
     count: number;
 }
 
+interface RecentConversion {
+    id: string;
+    user_id: string;
+    user_name: string;
+    transaction_type: string;
+    transaction_name: string;
+    filename: string;
+    trading_partner: string | null;
+    source: string;
+    created_at: string;
+}
+
 // ============================================================================
 // Main Component
 // ============================================================================
@@ -74,6 +86,7 @@ export default function AdminHubPage() {
     const [activityFeed, setActivityFeed] = useState<ActivityItem[]>([]);
     const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
     const [dailyConversions, setDailyConversions] = useState<DailyConversion[]>([]);
+    const [recentConversions, setRecentConversions] = useState<RecentConversion[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -114,6 +127,10 @@ export default function AdminHubPage() {
                 // Fetch daily conversions for chart
                 const dailyRes = await fetch(`${API_BASE_URL}/api/v1/admin/stats/daily-conversions?days=14`);
                 if (dailyRes.ok) setDailyConversions(await dailyRes.json());
+
+                // Fetch recent conversions with user details
+                const recentRes = await fetch(`${API_BASE_URL}/api/v1/admin/stats/recent-conversions?limit=50`);
+                if (recentRes.ok) setRecentConversions(await recentRes.json());
             }
 
             if (activeTab === "system") {
@@ -221,7 +238,7 @@ export default function AdminHubPage() {
             ) : (
                 <>
                     {activeTab === "overview" && <OverviewTab stats={stats} conversionsByType={conversionsByType} />}
-                    {activeTab === "traffic" && <TrafficTab activityFeed={activityFeed} dailyConversions={dailyConversions} conversionsByType={conversionsByType} />}
+                    {activeTab === "traffic" && <TrafficTab recentConversions={recentConversions} dailyConversions={dailyConversions} conversionsByType={conversionsByType} />}
                     {activeTab === "system" && <SystemTab health={systemHealth} />}
                 </>
             )}
@@ -307,32 +324,14 @@ function OverviewTab({ stats, conversionsByType }: { stats: OverviewStats | null
 // ============================================================================
 
 function TrafficTab({
-    activityFeed,
+    recentConversions,
     dailyConversions,
     conversionsByType
 }: {
-    activityFeed: ActivityItem[];
+    recentConversions: RecentConversion[];
     dailyConversions: DailyConversion[];
     conversionsByType: ConversionsByType[];
 }) {
-    const getActionIcon = (action: string) => {
-        switch (action) {
-            case "conversion": return <FileText className="w-4 h-4 text-purple-600" />;
-            case "login": return <Users className="w-4 h-4 text-green-600" />;
-            case "layout_edit": return <Activity className="w-4 h-4 text-blue-600" />;
-            default: return <Activity className="w-4 h-4 text-slate-400" />;
-        }
-    };
-
-    const getActionColor = (action: string) => {
-        switch (action) {
-            case "conversion": return "bg-purple-100 text-purple-700";
-            case "login": return "bg-green-100 text-green-700";
-            case "layout_edit": return "bg-blue-100 text-blue-700";
-            default: return "bg-slate-100 text-slate-600";
-        }
-    };
-
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr);
         const now = new Date();
@@ -345,6 +344,15 @@ function TrafficTab({
         if (diffMins < 60) return `${diffMins}m ago`;
         if (diffHours < 24) return `${diffHours}h ago`;
         return `${diffDays}d ago`;
+    };
+
+    const getSourceBadge = (source: string) => {
+        switch (source) {
+            case "email": return "bg-blue-100 text-blue-700";
+            case "upload": return "bg-green-100 text-green-700";
+            case "api": return "bg-purple-100 text-purple-700";
+            default: return "bg-slate-100 text-slate-600";
+        }
     };
 
     // Find max for chart scaling
@@ -381,72 +389,87 @@ function TrafficTab({
                 )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Activity Feed */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-purple-600" />
-                        Recent Activity
+            {/* Recent Conversions Table */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                    <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-purple-600" />
+                        Recent Conversions
                     </h3>
-                    {activityFeed.length > 0 ? (
-                        <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                            {activityFeed.map((item) => (
-                                <div key={item.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                                    <div className="mt-0.5">{getActionIcon(item.action)}</div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getActionColor(item.action)}`}>
-                                                {item.action}
-                                            </span>
-                                            {typeof item.details?.transaction_type === 'string' && (
-                                                <span className="text-xs text-slate-500 font-mono">
-                                                    {item.details.transaction_type}
+                </div>
+                {recentConversions.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="text-left py-3 px-4 font-medium text-slate-600">User</th>
+                                    <th className="text-left py-3 px-4 font-medium text-slate-600">Layout</th>
+                                    <th className="text-left py-3 px-4 font-medium text-slate-600">File</th>
+                                    <th className="text-left py-3 px-4 font-medium text-slate-600">Source</th>
+                                    <th className="text-left py-3 px-4 font-medium text-slate-600">When</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {recentConversions.map((conv) => (
+                                    <tr key={conv.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="py-3 px-4">
+                                            <div>
+                                                <p className="font-medium text-slate-800">{conv.user_name}</p>
+                                                <p className="text-xs text-slate-400 font-mono">{conv.user_id.slice(0, 8)}...</p>
+                                            </div>
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="inline-flex items-center justify-center w-10 h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded text-white font-bold text-xs">
+                                                    {conv.transaction_type}
                                                 </span>
-                                            )}
-                                        </div>
-                                        <p className="text-sm text-slate-600 truncate mt-1">
-                                            {item.user_email || item.user_id?.slice(0, 8) || "Anonymous"}
-                                            {typeof item.details?.filename === 'string' && ` → ${item.details.filename}`}
-                                        </p>
-                                    </div>
-                                    <span className="text-xs text-slate-400 whitespace-nowrap">{formatTime(item.created_at)}</span>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-slate-500 text-center py-8">No activity yet</p>
-                    )}
-                </div>
+                                                <span className="text-slate-600 text-xs">{conv.transaction_name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            <span className="text-slate-700 truncate block max-w-[200px]" title={conv.filename}>
+                                                {conv.filename}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSourceBadge(conv.source)}`}>
+                                                {conv.source}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-4 text-slate-500">
+                                            {formatTime(conv.created_at)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <p className="text-slate-500 text-center py-8">No conversions yet</p>
+                )}
+            </div>
 
-                {/* Feature Usage */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                        <BarChart3 className="w-5 h-5 text-purple-600" />
-                        Feature Usage
-                    </h3>
-                    {conversionsByType.length > 0 ? (
-                        <div className="space-y-4">
-                            {conversionsByType.slice(0, 8).map((item, i) => (
-                                <div key={i} className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                                            {item.transaction_type}
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-slate-800">EDI {item.transaction_type}</p>
-                                            <p className="text-xs text-slate-500">{item.count} conversions</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-lg font-bold text-slate-800">{item.percentage}%</p>
-                                    </div>
+            {/* Feature Usage Summary */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-purple-600" />
+                    Layout Usage (Last 30 Days)
+                </h3>
+                {conversionsByType.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        {conversionsByType.map((item, i) => (
+                            <div key={i} className="text-center p-4 bg-slate-50 rounded-lg">
+                                <div className="w-12 h-12 mx-auto bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold mb-2">
+                                    {item.transaction_type}
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-slate-500 text-center py-8">No usage data yet</p>
-                    )}
-                </div>
+                                <p className="text-2xl font-bold text-slate-800">{item.count}</p>
+                                <p className="text-xs text-slate-500">{item.percentage}%</p>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-slate-500 text-center py-8">No usage data yet</p>
+                )}
             </div>
         </div>
     );
