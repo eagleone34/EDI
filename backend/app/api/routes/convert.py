@@ -212,6 +212,25 @@ async def convert_edi_file(
         if warning_message:
             response_content["warning"] = warning_message
         
+        # Log activity for admin analytics (fire and forget)
+        try:
+            from app.api.routes.admin import log_activity
+            log_activity(
+                user_id=user_id,
+                user_email=None,  # We don't have email here
+                action="conversion",
+                details={
+                    "transaction_type": actual_type,
+                    "filename": file.filename,
+                    "document_count": len(documents),
+                    "formats": format_list,
+                    "processing_time_ms": processing_time,
+                    "trading_partner": trading_partner,
+                }
+            )
+        except Exception as log_err:
+            print(f"Activity log error (non-fatal): {log_err}")
+        
         return JSONResponse(
             status_code=200,
             content=response_content
