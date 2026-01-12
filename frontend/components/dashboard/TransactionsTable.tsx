@@ -25,6 +25,7 @@ export default function TransactionsTable({ title = "Recent Conversions", limit 
     const [emailModal, setEmailModal] = useState<{ doc: Document } | null>(null);
     const [emailTo, setEmailTo] = useState("");
     const [emailSending, setEmailSending] = useState(false);
+    const [emailFormats, setEmailFormats] = useState<string[]>(["pdf"]);
 
     useEffect(() => {
         const fetchDocuments = async () => {
@@ -244,7 +245,19 @@ export default function TransactionsTable({ title = "Recent Conversions", limit 
 
     const handleEmailClick = (doc: Document) => {
         setEmailModal({ doc });
+        setEmailFormats(["pdf"]); // Reset to just PDF by default
         setActiveActionMenu(null);
+    };
+
+    const handleFormatToggle = (format: string) => {
+        if (emailFormats.includes(format)) {
+            // Don't allow unchecking the last one
+            if (emailFormats.length > 1) {
+                setEmailFormats(emailFormats.filter(f => f !== format));
+            }
+        } else {
+            setEmailFormats([...emailFormats, format]);
+        }
     };
 
     const handleSendEmail = async () => {
@@ -264,7 +277,8 @@ export default function TransactionsTable({ title = "Recent Conversions", limit 
                     transaction_type: emailModal.doc.transaction_type,
                     transaction_name: emailModal.doc.transaction_name || emailModal.doc.transaction_type,
                     trading_partner: emailModal.doc.trading_partner,
-                    document_id: emailModal.doc.id,
+                    document_id: emailModal.doc.id, // Include document ID for backend fetching
+                    formats: emailFormats, // Include selected formats
                 }),
             });
 
@@ -520,6 +534,39 @@ export default function TransactionsTable({ title = "Recent Conversions", limit 
                                 value={emailTo}
                                 onChange={(e) => setEmailTo(e.target.value)}
                             />
+
+                            <div className="mb-6">
+                                <p className="text-sm font-medium text-slate-700 mb-2">Include Formats:</p>
+                                <div className="flex gap-4">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={emailFormats?.includes('pdf') || false}
+                                            onChange={() => handleFormatToggle('pdf')}
+                                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm text-slate-600">PDF</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={emailFormats?.includes('excel') || false}
+                                            onChange={() => handleFormatToggle('excel')}
+                                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm text-slate-600">Excel</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={emailFormats?.includes('html') || false}
+                                            onChange={() => handleFormatToggle('html')}
+                                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm text-slate-600">HTML</span>
+                                    </label>
+                                </div>
+                            </div>
 
                             <div className="flex gap-3">
                                 <button

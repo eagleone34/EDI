@@ -174,7 +174,9 @@ class EmailService:
         transaction_name: str,
         pdf_base64: str = None,
         excel_base64: str = None,
+        html_base64: str = None,
         trading_partner: str = None,
+        formats: list = None,
     ) -> dict:
         """
         Send converted EDI document to recipients with attachments.
@@ -186,14 +188,16 @@ class EmailService:
             transaction_name: Human-readable name (e.g., "Purchase Order")
             pdf_base64: Base64-encoded PDF content
             excel_base64: Base64-encoded Excel content
+            html_base64: Base64-encoded HTML content
             trading_partner: Trading partner name for reference
+            formats: List of formats to include (pdf, excel, html)
         
         Returns:
             dict with success status and message
         """
         if not self.api_key:
             print(f"[DEV MODE] Would send document to: {to_emails}")
-            return {"success": True, "message": "Email would be sent (dev mode)", "dev_mode": True}
+            return {"success": True, "message": "Email would be sent (dev mode)", "dev_code": "MOCK_EMAIL_ID"}
         
         if not RESEND_AVAILABLE:
             return {"success": False, "message": "Email service not available"}
@@ -205,6 +209,11 @@ class EmailService:
         subject = f"[{transaction_type}] {filename} - Converted Document"
         if trading_partner:
             subject = f"[{transaction_type}] {trading_partner} - {filename}"
+        
+        # Determine active formats
+        has_pdf = bool(pdf_base64) and (not formats or "pdf" in formats)
+        has_excel = bool(excel_base64) and (not formats or "excel" in formats)
+        has_html = bool(html_base64) and (not formats or "html" in formats)
         
         # Build HTML body
         html_content = f"""
@@ -248,8 +257,9 @@ class EmailService:
             <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin: 16px 0;">
                 <p style="margin: 0; color: #64748b; font-size: 14px;">
                     <strong>Attached files:</strong><br>
-                    {"• PDF version<br>" if pdf_base64 else ""}
-                    {"• Excel version" if excel_base64 else ""}
+                    {"• PDF version<br>" if has_pdf else ""}
+                    {"• Excel version<br>" if has_excel else ""}
+                    {"• HTML version" if has_html else ""}
                 </p>
             </div>
         </div>
@@ -268,7 +278,7 @@ class EmailService:
         attachments = []
         base_filename = filename.rsplit(".", 1)[0] if "." in filename else filename
         
-        if pdf_base64:
+        if has_pdf:
             try:
                 # Decode base64 to bytes list for Resend
                 pdf_bytes = list(base64.b64decode(pdf_base64))
@@ -279,7 +289,7 @@ class EmailService:
             except Exception as e:
                 print(f"Error decoding PDF attachment: {e}")
         
-        if excel_base64:
+        if has_excel:
             try:
                 # Decode base64 to bytes list for Resend
                 excel_bytes = list(base64.b64decode(excel_base64))
@@ -289,6 +299,17 @@ class EmailService:
                 })
             except Exception as e:
                 print(f"Error decoding Excel attachment: {e}")
+                
+        if has_html:
+            try:
+                # Decode base64 to bytes list for Resend
+                html_bytes = list(base64.b64decode(html_base64))
+                attachments.append({
+                    "filename": f"{base_filename}.html", 
+                    "content": html_bytes,
+                })
+            except Exception as e:
+                print(f"Error decoding HTML attachment: {e}")
         
         try:
             send_params = {
