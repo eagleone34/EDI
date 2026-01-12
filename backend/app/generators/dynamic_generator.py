@@ -14,11 +14,16 @@ class DynamicGenerator:
         """
         Main entry point for HTML. Generates the full HTML document.
         """
-        # 1. Build Document Title
-        title = self.config.title_format.format(
-            name=doc.transaction_name, 
-            ref_number=doc.header.get('po_number', 'Unknown')
-        )
+        # 1. Build Document Title - support custom placeholders from header
+        try:
+            format_data = {
+                'name': doc.transaction_name,
+                'ref_number': doc.header.get('po_number', 'Unknown'),
+                **doc.header  # Pass all header fields for custom placeholders
+            }
+            title = self.config.title_format.format(**format_data)
+        except KeyError:
+            title = f"{doc.transaction_name}"
         
         # 2. Render Content
         content_html = self.render_content(doc)
@@ -77,11 +82,16 @@ class DynamicGenerator:
             if i > 0:
                 elements.append(PageBreak())
             
-            # Title
-            title = self.config.title_format.format(
-                name=edi_doc.transaction_name,
-                ref_number=edi_doc.header.get('po_number') or edi_doc.header.get('credit_debit_number', 'Unknown')
-            )
+            # Title - support custom placeholders from header
+            try:
+                format_data = {
+                    'name': edi_doc.transaction_name,
+                    'ref_number': edi_doc.header.get('po_number') or edi_doc.header.get('credit_debit_number', 'Unknown'),
+                    **edi_doc.header
+                }
+                title = self.config.title_format.format(**format_data)
+            except KeyError:
+                title = f"{edi_doc.transaction_name}"
             elements.append(Paragraph(title, title_style))
             elements.append(Spacer(1, 12))
             
@@ -204,11 +214,16 @@ class DynamicGenerator:
             
             current_row = 1
             
-            # Title
-            title = self.config.title_format.format(
-                name=edi_doc.transaction_name,
-                ref_number=ref
-            )
+            # Title - support custom placeholders from header
+            try:
+                format_data = {
+                    'name': edi_doc.transaction_name,
+                    'ref_number': ref,
+                    **edi_doc.header
+                }
+                title = self.config.title_format.format(**format_data)
+            except KeyError:
+                title = f"{edi_doc.transaction_name}"
             ws.cell(row=current_row, column=1, value=title)
             ws.cell(row=current_row, column=1).font = Font(bold=True, size=14, color="1E40AF")
             ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=4)
