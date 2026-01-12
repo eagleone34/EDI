@@ -8,7 +8,12 @@ import { ChevronUp, ChevronDown, FileText, Eye, Download, Mail, MoreHorizontal, 
 type SortField = "created_at" | "transaction_type" | "filename" | "trading_partner";
 type SortDirection = "asc" | "desc";
 
-export default function TransactionsTable() {
+interface TransactionsTableProps {
+    title?: string;
+    limit?: number;
+}
+
+export default function TransactionsTable({ title = "Recent Conversions", limit = 10 }: TransactionsTableProps) {
     const { user } = useAuth();
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
@@ -293,11 +298,13 @@ export default function TransactionsTable() {
         return <div className="p-8 text-center text-gray-500">Loading your conversions...</div>;
     }
 
+    const displayedDocuments = limit ? filteredAndSortedDocuments.slice(0, limit) : filteredAndSortedDocuments;
+
     return (
         <>
             <div className="bg-white rounded-xl shadow-sm border border-slate-200">
                 <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <h2 className="text-xl font-bold text-slate-800">Recent Conversions</h2>
+                    <h2 className="text-xl font-bold text-slate-800">{title}</h2>
 
                     <div className="flex gap-2">
                         <input
@@ -358,7 +365,7 @@ export default function TransactionsTable() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredAndSortedDocuments.slice(0, 10).map((doc) => (
+                            {displayedDocuments.map((doc) => (
                                 <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-3 py-3">
                                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
@@ -406,7 +413,7 @@ export default function TransactionsTable() {
 
                                                 {/* Action Dropdown */}
                                                 {activeActionMenu === doc.id && (
-                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 w-56 whitespace-nowrap">
                                                         {/* View HTML (Primary Action) */}
                                                         <button
                                                             onClick={() => handleView(doc, 'html')}
