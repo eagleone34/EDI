@@ -191,14 +191,17 @@ class EDI875Parser(BaseEDIParser):
         """Parse party information."""
         parties = []
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
             party_code = n1["elements"][0] if len(n1["elements"]) > 0 else None
             
@@ -212,12 +215,12 @@ class EDI875Parser(BaseEDIParser):
             
             # Look for N3/N4
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments):
-                    if segments[i]["id"] == "N3":
-                        n3 = segments[i]
+                if i < len(parsed_segments):
+                    if parsed_segments[i]["id"] == "N3":
+                        n3 = parsed_segments[i]
                         party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
-                    elif segments[i]["id"] == "N4":
-                        n4 = segments[i]
+                    elif parsed_segments[i]["id"] == "N4":
+                        n4 = parsed_segments[i]
                         party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
                         party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
                         party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
@@ -229,16 +232,19 @@ class EDI875Parser(BaseEDIParser):
     def _parse_line_items(self, segments: list, document: EDIDocument) -> None:
         """Parse G68/G69/G70/G72 line item loops."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         g68_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "G68":
                 g68_indices.append(i)
         
         total_amount = 0
         
         for idx, g68_idx in enumerate(g68_indices):
-            g68 = segments[g68_idx]
-            end_idx = g68_indices[idx + 1] if idx + 1 < len(g68_indices) else len(segments)
+            g68 = parsed_segments[g68_idx]
+            end_idx = g68_indices[idx + 1] if idx + 1 < len(g68_indices) else len(parsed_segments)
             
             elements = g68["elements"]
             
@@ -301,16 +307,16 @@ class EDI875Parser(BaseEDIParser):
             
             # Look for G69 (Description)
             for i in range(g68_idx + 1, min(end_idx, g68_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "G69":
-                    g69 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "G69":
+                    g69 = parsed_segments[i]
                     if len(g69["elements"]) > 0 and g69["elements"][0]:
                         line_item["description"] = g69["elements"][0]
                     break
             
             # Look for G70 (Line Item Detail - Miscellaneous)
             for i in range(g68_idx + 1, min(end_idx, g68_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "G70":
-                    g70 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "G70":
+                    g70 = parsed_segments[i]
                     if len(g70["elements"]) > 0 and g70["elements"][0]:
                         line_item["pack"] = g70["elements"][0]
                     if len(g70["elements"]) > 1 and g70["elements"][1]:
@@ -320,8 +326,8 @@ class EDI875Parser(BaseEDIParser):
             # Look for G72 (Allowance or Charge)
             allowances_charges = []
             for i in range(g68_idx + 1, min(end_idx, g68_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "G72":
-                    g72 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "G72":
+                    g72 = parsed_segments[i]
                     elements = g72["elements"]
                     
                     entry = {}
