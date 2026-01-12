@@ -90,6 +90,8 @@ export default function AdminHubPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'created_at', direction: 'desc' });
 
     // Redirect non-superadmins
     useEffect(() => {
@@ -114,7 +116,13 @@ export default function AdminHubPage() {
             if (activeTab === "overview" || activeTab === "traffic") {
                 // Fetch overview stats
                 const statsRes = await fetch(`${API_BASE_URL}/api/v1/admin/stats/overview`);
-                if (statsRes.ok) setStats(await statsRes.json());
+                if (statsRes.ok) {
+                    const statsData = await statsRes.json();
+                    console.log("Overview stats:", statsData);
+                    setStats(statsData);
+                } else {
+                    console.error("Stats API error:", statsRes.status, await statsRes.text());
+                }
 
                 // Fetch conversions by type
                 const typesRes = await fetch(`${API_BASE_URL}/api/v1/admin/stats/conversions-by-type?days=30`);
@@ -129,7 +137,7 @@ export default function AdminHubPage() {
                 if (dailyRes.ok) setDailyConversions(await dailyRes.json());
 
                 // Fetch recent conversions with user details
-                const recentRes = await fetch(`${API_BASE_URL}/api/v1/admin/stats/recent-conversions?limit=50`);
+                const recentRes = await fetch(`${API_BASE_URL}/api/v1/admin/stats/recent-conversions?limit=100`);
                 if (recentRes.ok) setRecentConversions(await recentRes.json());
             }
 
@@ -238,7 +246,7 @@ export default function AdminHubPage() {
             ) : (
                 <>
                     {activeTab === "overview" && <OverviewTab stats={stats} conversionsByType={conversionsByType} />}
-                    {activeTab === "traffic" && <TrafficTab recentConversions={recentConversions} dailyConversions={dailyConversions} conversionsByType={conversionsByType} />}
+                    {activeTab === "traffic" && <TrafficTab recentConversions={recentConversions} dailyConversions={dailyConversions} conversionsByType={conversionsByType} searchQuery={searchQuery} setSearchQuery={setSearchQuery} sortConfig={sortConfig} setSortConfig={setSortConfig} />}
                     {activeTab === "system" && <SystemTab health={systemHealth} />}
                 </>
             )}
@@ -326,11 +334,19 @@ function OverviewTab({ stats, conversionsByType }: { stats: OverviewStats | null
 function TrafficTab({
     recentConversions,
     dailyConversions,
-    conversionsByType
+    conversionsByType,
+    searchQuery,
+    setSearchQuery,
+    sortConfig,
+    setSortConfig
 }: {
     recentConversions: RecentConversion[];
     dailyConversions: DailyConversion[];
     conversionsByType: ConversionsByType[];
+    searchQuery: string;
+    setSearchQuery: (q: string) => void;
+    sortConfig: { key: string; direction: 'asc' | 'desc' };
+    setSortConfig: (config: { key: string; direction: 'asc' | 'desc' }) => void;
 }) {
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -354,6 +370,40 @@ function TrafficTab({
             default: return "bg-slate-100 text-slate-600";
         }
     };
+
+    const handleSort = (key: string) => {
+        setSortConfig({
+            key,
+            direction: sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc'
+        });
+    };
+
+    const getSortIcon = (key: string) => {
+        if (sortConfig.key !== key) return "↕";
+        return sortConfig.direction === 'asc' ? "↑" : "↓";
+    };
+
+    // Filter and sort conversions
+    const filteredConversions = recentConversions
+        .filter(conv => {
+            if (!searchQuery) return true;
+            const q = searchQuery.toLowerCase();
+            return (
+                conv.user_name.toLowerCase().includes(q) ||
+                conv.user_id.toLowerCase().includes(q) ||
+                conv.transaction_type.toLowerCase().includes(q) ||
+                conv.filename.toLowerCase().includes(q) ||
+                conv.source.toLowerCase().includes(q)
+            );
+        })
+        .sort((a, b) => {
+            const key = sortConfig.key as keyof RecentConversion;
+            const aVal = a[key] ?? "";
+            const bVal = b[key] ?? "";
+            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
 
     // Find max for chart scaling
     const maxDaily = Math.max(...dailyConversions.map(d => d.count), 1);
@@ -391,26 +441,48 @@ function TrafficTab({
 
             {/* Recent Conversions Table */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-slate-100">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between gap-4 flex-wrap">
                     <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
                         <FileText className="w-5 h-5 text-purple-600" />
-                        Recent Conversions
+                        Recent Conversions ({filteredConversions.length})
                     </h3>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Search by user, layout, file..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-64 pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                        <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
                 </div>
-                {recentConversions.length > 0 ? (
-                    <div className="overflow-x-auto">
+                {filteredConversions.length > 0 ? (
+                    <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                         <table className="w-full text-sm">
-                            <thead className="bg-slate-50">
+                            <thead className="bg-slate-50 sticky top-0">
                                 <tr>
-                                    <th className="text-left py-3 px-4 font-medium text-slate-600">User</th>
-                                    <th className="text-left py-3 px-4 font-medium text-slate-600">Layout</th>
-                                    <th className="text-left py-3 px-4 font-medium text-slate-600">File</th>
-                                    <th className="text-left py-3 px-4 font-medium text-slate-600">Source</th>
-                                    <th className="text-left py-3 px-4 font-medium text-slate-600">When</th>
+                                    <th onClick={() => handleSort('user_name')} className="text-left py-3 px-4 font-medium text-slate-600 cursor-pointer hover:bg-slate-100 select-none">
+                                        User {getSortIcon('user_name')}
+                                    </th>
+                                    <th onClick={() => handleSort('transaction_type')} className="text-left py-3 px-4 font-medium text-slate-600 cursor-pointer hover:bg-slate-100 select-none">
+                                        Layout {getSortIcon('transaction_type')}
+                                    </th>
+                                    <th onClick={() => handleSort('filename')} className="text-left py-3 px-4 font-medium text-slate-600 cursor-pointer hover:bg-slate-100 select-none">
+                                        File {getSortIcon('filename')}
+                                    </th>
+                                    <th onClick={() => handleSort('source')} className="text-left py-3 px-4 font-medium text-slate-600 cursor-pointer hover:bg-slate-100 select-none">
+                                        Source {getSortIcon('source')}
+                                    </th>
+                                    <th onClick={() => handleSort('created_at')} className="text-left py-3 px-4 font-medium text-slate-600 cursor-pointer hover:bg-slate-100 select-none">
+                                        When {getSortIcon('created_at')}
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {recentConversions.map((conv) => (
+                                {filteredConversions.map((conv) => (
                                     <tr key={conv.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="py-3 px-4">
                                             <div>
@@ -445,7 +517,7 @@ function TrafficTab({
                         </table>
                     </div>
                 ) : (
-                    <p className="text-slate-500 text-center py-8">No conversions yet</p>
+                    <p className="text-slate-500 text-center py-8">{searchQuery ? "No matching conversions" : "No conversions yet"}</p>
                 )}
             </div>
 
