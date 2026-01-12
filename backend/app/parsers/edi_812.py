@@ -371,38 +371,46 @@ class EDI812Parser(BaseEDIParser):
         return document
     
     def _parse_parties(self, segments: list) -> List[Dict]:
-        """Parse all party-related segments (N1, N2, N3, N4)."""
+        """Parse party information."""
         parties = []
-        n1_segments = self.get_all_segments_by_id(segments, "N1")
-        n2_segments = self.get_all_segments_by_id(segments, "N2")
-        n3_segments = self.get_all_segments_by_id(segments, "N3")
-        n4_segments = self.get_all_segments_by_id(segments, "N4")
         
-        for i, n1 in enumerate(n1_segments):
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
+        n1_indices = []
+        for i, seg in enumerate(parsed_segments):
+            if seg["id"] == "N1":
+                n1_indices.append(i)
+        
+        for idx, n1_idx in enumerate(n1_indices):
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
+            
             elements = n1["elements"]
             party_code = elements[0] if len(elements) > 0 else None
             
             party = {
                 "type_code": party_code,
                 "type": PARTY_TYPE_CODES.get(party_code, party_code),
-                "name": n1["elements"][1] if len(n1["elements"]) > 1 else None,
-                "id_qualifier": n1["elements"][2] if len(n1["elements"]) > 2 else None,
-                "id": n1["elements"][3] if len(n1["elements"]) > 3 else None,
+                "name": elements[1] if len(elements) > 1 else None,
+                "id_qualifier": elements[2] if len(elements) > 2 else None,
+                "id": elements[3] if len(elements) > 3 else None,
             }
             
             # Look for N2/N3/N4
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 10)):
                 if i < len(parsed_segments):
-                    if parsed_segments[i]["id"] == "N3":
-                        n3 = parsed_segments[i]
-                        party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
-                        party["address_line2"] = n3["elements"][1] if len(n3["elements"]) > 1 else None
-                    elif parsed_segments[i]["id"] == "N4":
-                        n4 = parsed_segments[i]
-                        party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
-                        party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
-                        party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
-                        party["country"] = n4["elements"][3] if len(n4["elements"]) > 3 else None
+                    seg = parsed_segments[i]
+                    if seg["id"] == "N3":
+                        party["address_line1"] = seg["elements"][0] if len(seg["elements"]) > 0 else None
+                        party["address_line2"] = seg["elements"][1] if len(seg["elements"]) > 1 else None
+                    elif seg["id"] == "N4":
+                        party["city"] = seg["elements"][0] if len(seg["elements"]) > 0 else None
+                        party["state"] = seg["elements"][1] if len(seg["elements"]) > 1 else None
+                        party["zip"] = seg["elements"][2] if len(seg["elements"]) > 2 else None
+                        party["country"] = seg["elements"][3] if len(seg["elements"]) > 3 else None
+                    elif seg["id"] == "N2":
+                        party["additional_name"] = seg["elements"][0] if len(seg["elements"]) > 0 else None
             
             parties.append(party)
         
