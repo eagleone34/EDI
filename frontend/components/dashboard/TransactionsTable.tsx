@@ -129,54 +129,83 @@ export default function TransactionsTable() {
     };
 
     // Action handlers
-    const handleView = (doc: Document) => {
-        // Helper to open base64 data in new tab via Blob
-        const openDataUrl = (dataUrl: string, type: string) => {
+    const handleView = (doc: Document, format: 'html' | 'pdf' = 'html') => {
+        // Helper to open content
+        const openContent = (urlOrData: string, type: string) => {
             try {
-                // Extract base64 content
-                const base64Match = dataUrl.match(/base64,(.+)/);
-                if (!base64Match) return false;
-
-                const base64Data = base64Match[1];
-                const byteCharacters = atob(base64Data);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                // Case 1: Base64 Data URI
+                if (urlOrData.startsWith('data:') || urlOrData.match(/base64,/)) {
+                    const base64Match = urlOrData.match(/base64,(.+)/);
+                    if (base64Match) {
+                        const base64Data = base64Match[1];
+                        const byteCharacters = atob(base64Data);
+                        const byteNumbers = new Array(byteCharacters.length);
+                        for (let i = 0; i < byteCharacters.length; i++) {
+                            byteNumbers[i] = byteCharacters.charCodeAt(i);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        const blob = new Blob([byteArray], { type: type });
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, "_blank");
+                        setTimeout(() => URL.revokeObjectURL(url), 60000);
+                        return true;
+                    }
                 }
-                const byteArray = new Uint8Array(byteNumbers);
-                const blob = new Blob([byteArray], { type: type });
-                const url = URL.createObjectURL(blob);
-                window.open(url, "_blank");
 
-                // Cleanup URL after a delay (browser needs it to open tab first)
-                setTimeout(() => URL.revokeObjectURL(url), 60000);
-                return true;
+                // Case 2: Regular URL (Supabase Storage or External)
+                if (urlOrData.startsWith('http') || urlOrData.startsWith('/')) {
+                    window.open(urlOrData, "_blank");
+                    return true;
+                }
+
+                return false;
             } catch (e) {
                 console.error("Error displaying file:", e);
                 return false;
             }
         };
 
-        if (doc.pdf_url) {
-            // Prioritize PDF View
-            openDataUrl(doc.pdf_url, "application/pdf");
+        if (format === 'html' && doc.html_url) {
+            openContent(doc.html_url, "text/html");
+        } else if (format === 'pdf' && doc.pdf_url) {
+            openContent(doc.pdf_url, "application/pdf");
+        } else if (doc.pdf_url) {
+            // Fallback default
+            openContent(doc.pdf_url, "application/pdf");
         } else if (doc.html_url) {
-            // Fallback to HTML
-            openDataUrl(doc.html_url, "text/html");
+            openContent(doc.html_url, "text/html");
         } else {
             alert("File preview not available for this archived item.");
         }
         setActiveActionMenu(null);
     };
 
-    const handleDownload = (doc: Document) => {
-        if (doc.pdf_url) {
-            const link = document.createElement("a");
-            link.href = doc.pdf_url;
-            link.download = doc.filename.replace(/\.[^/.]+$/, "") + ".pdf";
-            link.click();
+    const handleDownload = (doc: Document, format: 'pdf' | 'excel' | 'html') => {
+        const downloadLink = (url: string, ext: string) => {
+            if (url.startsWith('data:') || url.match(/base64,/)) {
+                // Base 64 download
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `${doc.filename.replace(/\.[^/.]+$/, "")}.${ext}`;
+                link.click();
+            } else {
+                // Direct URL download
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute('download', `${doc.filename.replace(/\.[^/.]+$/, "")}.${ext}`);
+                link.target = '_blank';
+                link.click();
+            }
+        };
+
+        if (format === 'pdf' && doc.pdf_url) {
+            downloadLink(doc.pdf_url, 'pdf');
+        } else if (format === 'excel' && (doc as any).excel_url) {
+            downloadLink((doc as any).excel_url, 'xlsx');
+        } else if (format === 'html' && doc.html_url) {
+            downloadLink(doc.html_url, 'html');
         } else {
-            alert("Download not available for this archived item.");
+            alert(`${format.toUpperCase()} download not available for this item.`);
         }
         setActiveActionMenu(null);
     };
@@ -377,24 +406,49 @@ export default function TransactionsTable() {
 
                                                 {/* Action Dropdown */}
                                                 {activeActionMenu === doc.id && (
-                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 min-w-[140px]">
+                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+                                                        {/* View HTML (Primary Action) */}
                                                         <button
-                                                            onClick={() => handleView(doc)}
-                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                            onClick={() => handleView(doc, 'html')}
+                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                                                         >
-                                                            <Eye className="w-4 h-4" />
-                                                            View
+                                                            <Eye className="w-4 h-4 text-blue-600" />
+                                                            View HTML
                                                         </button>
+
+                                                        <div className="h-px bg-slate-100 my-1"></div>
+
+                                                        {/* Downloads */}
                                                         <button
-                                                            onClick={() => handleDownload(doc)}
-                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                            onClick={() => handleDownload(doc, 'pdf')}
+                                                            disabled={!doc.pdf_url}
+                                                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                         >
                                                             <Download className="w-4 h-4" />
-                                                            Download
+                                                            Download PDF
                                                         </button>
                                                         <button
+                                                            onClick={() => handleDownload(doc, 'excel')}
+                                                            disabled={!(doc as any).excel_url}
+                                                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            <FileText className="w-4 h-4" />
+                                                            Download Excel
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDownload(doc, 'html')}
+                                                            disabled={!doc.html_url}
+                                                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            <div className="w-4 h-4 flex items-center justify-center font-bold text-xs border border-current rounded">H</div>
+                                                            Download HTML
+                                                        </button>
+
+                                                        <div className="h-px bg-slate-100 my-1"></div>
+
+                                                        <button
                                                             onClick={() => handleEmailClick(doc)}
-                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
                                                         >
                                                             <Mail className="w-4 h-4" />
                                                             Email
