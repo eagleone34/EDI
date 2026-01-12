@@ -259,68 +259,62 @@ class EDI810Parser(BaseEDIParser):
         
         return document
     
-    def _parse_party_loops(self, segments: list) -> List[Dict]:
-        """Parse N1/N2/N3/N4/PER loops for party/address information."""
+    def _parse_parties(self, segments: list) -> List[Dict]:
+        """Parse N1 loops (Party Identification)."""
         parties = []
         
-        # Find all N1 segment indices
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
-            # Determine loop end (next N1 or segment that breaks the loop)
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
-            
+            # N101 - Entity Identifier Code
             party_code = n1["elements"][0] if len(n1["elements"]) > 0 else None
             
             party = {
                 "type_code": party_code,
-                "type": PARTY_TYPE_CODES.get(party_code, party_code),
                 "name": n1["elements"][1] if len(n1["elements"]) > 1 else None,
+                "id_qualifier": n1["elements"][2] if len(n1["elements"]) > 2 else None,
+                "id": n1["elements"][3] if len(n1["elements"]) > 3 else None,
             }
-            
-            # ID Qualifier and ID
-            if len(n1["elements"]) > 2 and n1["elements"][2]:
-                id_qual = n1["elements"][2]
-                party["id_qualifier"] = id_qual
-                party["id_qualifier_desc"] = ID_QUALIFIERS.get(id_qual, id_qual)
-            if len(n1["elements"]) > 3 and n1["elements"][3]:
-                party["id"] = n1["elements"][3]
             
             # Look for N2 (Additional Name)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 6)):
-                if i < len(segments) and segments[i]["id"] == "N2":
-                    n2 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "N2":
+                    n2 = parsed_segments[i]
                     if len(n2["elements"]) > 0 and n2["elements"][0]:
                         party["additional_name"] = n2["elements"][0]
                     break
             
-            # Look for N3 (Address)
-            for i in range(n1_idx + 1, min(end_idx, n1_idx + 6)):
-                if i < len(segments) and segments[i]["id"] == "N3":
-                    n3 = segments[i]
-                    party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
-                    party["address_line2"] = n3["elements"][1] if len(n3["elements"]) > 1 else None
-                    break
-            
-            # Look for N4 (Geographic Location)
-            for i in range(n1_idx + 1, min(end_idx, n1_idx + 6)):
-                if i < len(segments) and segments[i]["id"] == "N4":
-                    n4 = segments[i]
-                    party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
-                    party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
-                    party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
-                    party["country"] = n4["elements"][3] if len(n4["elements"]) > 3 else None
-                    break
+            # Look for N3 (Address Info)
+            for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
+                 if i < len(parsed_segments):
+                    if parsed_segments[i]["id"] == "N3":
+                        n3 = parsed_segments[i]
+                        party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
+                        if len(n3["elements"]) > 1:
+                            party["address_line2"] = n3["elements"][1]
+                    
+                    # Look for N4 (Geographic Location)
+                    elif parsed_segments[i]["id"] == "N4":
+                        n4 = parsed_segments[i]
+                        party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
+                        party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
+                        party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
+                        if len(n4["elements"]) > 3:
+                            party["country"] = n4["elements"][3]
             
             # Look for PER (Administrative Communication Contact)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 6)):
-                if i < len(segments) and segments[i]["id"] == "PER":
-                    per = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "PER":
+                    per = parsed_segments[i]
                     party["contact_type"] = per["elements"][0] if len(per["elements"]) > 0 else None
                     party["contact_name"] = per["elements"][1] if len(per["elements"]) > 1 else None
                     if len(per["elements"]) > 3:
@@ -329,23 +323,26 @@ class EDI810Parser(BaseEDIParser):
                     break
             
             parties.append(party)
-        
+            
         return parties
     
     def _parse_line_items(self, segments: list, document: EDIDocument) -> None:
         """Parse IT1/PID loops for line item information."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         # Find all IT1 segment indices
         it1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "IT1":
                 it1_indices.append(i)
         
         for idx, it1_idx in enumerate(it1_indices):
-            it1 = segments[it1_idx]
+            it1 = parsed_segments[it1_idx]
             
             # Determine loop end (next IT1 or segment that breaks the loop)
-            end_idx = it1_indices[idx + 1] if idx + 1 < len(it1_indices) else len(segments)
+            end_idx = it1_indices[idx + 1] if idx + 1 < len(it1_indices) else len(parsed_segments)
             
             line_item = {
                 "line_number": it1["elements"][0] if len(it1["elements"]) > 0 else str(idx + 1),
@@ -388,8 +385,8 @@ class EDI810Parser(BaseEDIParser):
             # Look for PID (Product/Item Description)
             descriptions = []
             for i in range(it1_idx + 1, min(end_idx, it1_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "PID":
-                    pid = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "PID":
+                    pid = parsed_segments[i]
                     # PID05 is typically the description
                     if len(pid["elements"]) > 4 and pid["elements"][4]:
                         descriptions.append(pid["elements"][4])
@@ -399,8 +396,8 @@ class EDI810Parser(BaseEDIParser):
             # Look for additional information in SLN (Subline Item Detail)
             additional_info = []
             for i in range(it1_idx + 1, min(end_idx, it1_idx + 15)):
-                if i < len(segments) and segments[i]["id"] == "SLN":
-                    sln = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "SLN":
+                    sln = parsed_segments[i]
                     if len(sln["elements"]) > 8:
                         additional_info.append({
                             "quantity": sln["elements"][4] if len(sln["elements"]) > 4 else None,

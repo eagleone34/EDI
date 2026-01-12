@@ -160,17 +160,20 @@ class EDI997Parser(BaseEDIParser):
     def _parse_transaction_responses(self, segments: list, document: EDIDocument) -> None:
         """Parse AK2/AK3/AK4/AK5 loops for transaction set responses."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         # Find all AK2 segment indices
         ak2_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "AK2":
                 ak2_indices.append(i)
         
         for idx, ak2_idx in enumerate(ak2_indices):
-            ak2 = segments[ak2_idx]
+            ak2 = parsed_segments[ak2_idx]
             
             # Determine loop end
-            end_idx = ak2_indices[idx + 1] if idx + 1 < len(ak2_indices) else len(segments)
+            end_idx = ak2_indices[idx + 1] if idx + 1 < len(ak2_indices) else len(parsed_segments)
             
             transaction = {
                 "transaction_set_id": ak2["elements"][0] if len(ak2["elements"]) > 0 else None,
@@ -198,7 +201,7 @@ class EDI997Parser(BaseEDIParser):
             element_errors = []
             
             for i in range(ak2_idx + 1, end_idx):
-                seg = segments[i]
+                seg = parsed_segments[i]
                 
                 if seg["id"] == "AK3":  # Segment Error
                     elements = seg["elements"]

@@ -111,14 +111,17 @@ class EDI864Parser(BaseEDIParser):
         """Parse party information."""
         parties = []
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
             party_code = n1["elements"][0] if len(n1["elements"]) > 0 else None
             
@@ -132,8 +135,8 @@ class EDI864Parser(BaseEDIParser):
             
             # Look for PER (Contact)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "PER":
-                    per = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "PER":
+                    per = parsed_segments[i]
                     party["contact_name"] = per["elements"][1] if len(per["elements"]) > 1 else None
                     if len(per["elements"]) > 3:
                         party["contact_number"] = per["elements"][3]
@@ -141,8 +144,8 @@ class EDI864Parser(BaseEDIParser):
             
             # Look for REF (Reference)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "REF":
-                    ref = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "REF":
+                    ref = parsed_segments[i]
                     if len(ref["elements"]) >= 2:
                         if "references" not in party:
                             party["references"] = []
@@ -158,9 +161,12 @@ class EDI864Parser(BaseEDIParser):
     def _parse_messages(self, segments: list, document: EDIDocument) -> None:
         """Parse MIT/MSG/MTX message content."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         # Find all MIT (Message Identification) segments
         mit_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "MIT":
                 mit_indices.append(i)
         
@@ -169,8 +175,8 @@ class EDI864Parser(BaseEDIParser):
         if mit_indices:
             # Messages are structured in MIT loops
             for idx, mit_idx in enumerate(mit_indices):
-                mit = segments[mit_idx]
-                end_idx = mit_indices[idx + 1] if idx + 1 < len(mit_indices) else len(segments)
+                mit = parsed_segments[mit_idx]
+                end_idx = mit_indices[idx + 1] if idx + 1 < len(mit_indices) else len(parsed_segments)
                 
                 message = {
                     "message_number": str(len(messages) + 1),
@@ -187,7 +193,7 @@ class EDI864Parser(BaseEDIParser):
                 # Collect message text from MSG/MTX segments
                 text_parts = []
                 for i in range(mit_idx + 1, end_idx):
-                    seg = segments[i]
+                    seg = parsed_segments[i]
                     
                     if seg["id"] == "MSG":  # Message Text
                         if len(seg["elements"]) > 0 and seg["elements"][0]:
@@ -208,7 +214,7 @@ class EDI864Parser(BaseEDIParser):
         else:
             # No MIT segments - collect all MSG/MTX directly
             text_parts = []
-            for seg in segments:
+            for seg in parsed_segments:
                 if seg["id"] == "MSG":
                     if len(seg["elements"]) > 0 and seg["elements"][0]:
                         text_parts.append(seg["elements"][0])

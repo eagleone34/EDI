@@ -212,14 +212,17 @@ class EDI856Parser(BaseEDIParser):
         """Parse party information."""
         parties = []
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
             party_code = n1["elements"][0] if len(n1["elements"]) > 0 else None
             
@@ -233,16 +236,16 @@ class EDI856Parser(BaseEDIParser):
             
             # Look for N3 (Address)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "N3":
-                    n3 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "N3":
+                    n3 = parsed_segments[i]
                     party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
                     party["address_line2"] = n3["elements"][1] if len(n3["elements"]) > 1 else None
                     break
             
             # Look for N4 (Geographic Location)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "N4":
-                    n4 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "N4":
+                    n4 = parsed_segments[i]
                     party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
                     party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
                     party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
@@ -256,9 +259,12 @@ class EDI856Parser(BaseEDIParser):
     def _parse_hierarchy(self, segments: list, document: EDIDocument) -> None:
         """Parse HL (Hierarchical Level) loops for shipment structure."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         # Group segments by HL level
         hl_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "HL":
                 hl_indices.append(i)
         
@@ -267,10 +273,10 @@ class EDI856Parser(BaseEDIParser):
         packs = []
         
         for idx, hl_idx in enumerate(hl_indices):
-            hl = segments[hl_idx]
+            hl = parsed_segments[hl_idx]
             
             # Determine loop end
-            end_idx = hl_indices[idx + 1] if idx + 1 < len(hl_indices) else len(segments)
+            end_idx = hl_indices[idx + 1] if idx + 1 < len(hl_indices) else len(parsed_segments)
             
             # HL01 - Hierarchical ID Number
             hl_id = hl["elements"][0] if len(hl["elements"]) > 0 else None
@@ -289,7 +295,7 @@ class EDI856Parser(BaseEDIParser):
             }
             
             for i in range(hl_idx + 1, end_idx):
-                seg = segments[i]
+                seg = parsed_segments[i]
                 seg_id = seg["id"]
                 elements = seg["elements"]
                 

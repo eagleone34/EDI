@@ -197,14 +197,17 @@ class EDI861Parser(BaseEDIParser):
         """Parse party information."""
         parties = []
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
             party_code = n1["elements"][0] if len(n1["elements"]) > 0 else None
             
@@ -218,12 +221,12 @@ class EDI861Parser(BaseEDIParser):
             
             # Look for N3/N4
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments):
-                    if segments[i]["id"] == "N3":
-                        n3 = segments[i]
+                if i < len(parsed_segments):
+                    if parsed_segments[i]["id"] == "N3":
+                        n3 = parsed_segments[i]
                         party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
-                    elif segments[i]["id"] == "N4":
-                        n4 = segments[i]
+                    elif parsed_segments[i]["id"] == "N4":
+                        n4 = parsed_segments[i]
                         party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
                         party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
                         party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
@@ -235,8 +238,11 @@ class EDI861Parser(BaseEDIParser):
     def _parse_line_items(self, segments: list, document: EDIDocument) -> None:
         """Parse RCD (Receiving Conditions) segments."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         rcd_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "RCD":
                 rcd_indices.append(i)
         
@@ -244,8 +250,8 @@ class EDI861Parser(BaseEDIParser):
         total_damaged = 0
         
         for idx, rcd_idx in enumerate(rcd_indices):
-            rcd = segments[rcd_idx]
-            end_idx = rcd_indices[idx + 1] if idx + 1 < len(rcd_indices) else len(segments)
+            rcd = parsed_segments[rcd_idx]
+            end_idx = rcd_indices[idx + 1] if idx + 1 < len(rcd_indices) else len(parsed_segments)
             
             elements = rcd["elements"]
             
@@ -287,8 +293,8 @@ class EDI861Parser(BaseEDIParser):
             
             # Look for LIN (Item Identification)
             for i in range(rcd_idx + 1, min(end_idx, rcd_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "LIN":
-                    lin = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "LIN":
+                    lin = parsed_segments[i]
                     
                     product_ids = {}
                     j = 1
@@ -311,8 +317,8 @@ class EDI861Parser(BaseEDIParser):
             
             # Look for PID (Product Description)
             for i in range(rcd_idx + 1, min(end_idx, rcd_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "PID":
-                    pid = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "PID":
+                    pid = parsed_segments[i]
                     if len(pid["elements"]) > 4 and pid["elements"][4]:
                         line_item["description"] = pid["elements"][4]
                     break

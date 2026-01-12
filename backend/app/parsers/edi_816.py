@@ -118,16 +118,19 @@ class EDI816Parser(BaseEDIParser):
     def _parse_hierarchy(self, segments: list, document: EDIDocument) -> None:
         """Parse HL loops for organizational hierarchy."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         hl_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "HL":
                 hl_indices.append(i)
         
         organizations = []
         
         for idx, hl_idx in enumerate(hl_indices):
-            hl = segments[hl_idx]
-            end_idx = hl_indices[idx + 1] if idx + 1 < len(hl_indices) else len(segments)
+            hl = parsed_segments[hl_idx]
+            end_idx = hl_indices[idx + 1] if idx + 1 < len(hl_indices) else len(parsed_segments)
             
             org = {
                 "hl_id": hl["elements"][0] if len(hl["elements"]) > 0 else None,
@@ -137,7 +140,7 @@ class EDI816Parser(BaseEDIParser):
             
             # Parse segments within this HL loop
             for i in range(hl_idx + 1, end_idx):
-                seg = segments[i]
+                seg = parsed_segments[i]
                 
                 if seg["id"] == "NX1":  # Entity
                     elements = seg["elements"]

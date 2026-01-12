@@ -207,17 +207,20 @@ class EDI855Parser(BaseEDIParser):
     def _parse_line_items(self, segments: list, document: EDIDocument) -> None:
         """Parse PO1/ACK line item loops."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         # Find all PO1 segment indices
         po1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "PO1":
                 po1_indices.append(i)
         
         for idx, po1_idx in enumerate(po1_indices):
-            po1 = segments[po1_idx]
+            po1 = parsed_segments[po1_idx]
             
             # Determine loop end
-            end_idx = po1_indices[idx + 1] if idx + 1 < len(po1_indices) else len(segments)
+            end_idx = po1_indices[idx + 1] if idx + 1 < len(po1_indices) else len(parsed_segments)
             
             line_item = {
                 "line_number": po1["elements"][0] if len(po1["elements"]) > 0 else str(idx + 1),
@@ -250,8 +253,8 @@ class EDI855Parser(BaseEDIParser):
             
             # Look for PID (Product Description)
             for i in range(po1_idx + 1, min(end_idx, po1_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "PID":
-                    pid = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "PID":
+                    pid = parsed_segments[i]
                     if len(pid["elements"]) > 4 and pid["elements"][4]:
                         line_item["description"] = pid["elements"][4]
                     break
@@ -259,8 +262,8 @@ class EDI855Parser(BaseEDIParser):
             # Look for ACK (Line Item Acknowledgment)
             acknowledgments = []
             for i in range(po1_idx + 1, min(end_idx, po1_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "ACK":
-                    ack = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "ACK":
+                    ack = parsed_segments[i]
                     ack_entry = {}
                     
                     # ACK01 - Line Item Status Code

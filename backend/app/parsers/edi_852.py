@@ -117,14 +117,17 @@ class EDI852Parser(BaseEDIParser):
         """Parse party information."""
         parties = []
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
             party_code = n1["elements"][0] if len(n1["elements"]) > 0 else None
             
@@ -138,8 +141,8 @@ class EDI852Parser(BaseEDIParser):
             
             # Look for N4 (Geographic Location)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "N4":
-                    n4 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "N4":
+                    n4 = parsed_segments[i]
                     party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
                     party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
                     party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
@@ -152,8 +155,11 @@ class EDI852Parser(BaseEDIParser):
     def _parse_line_items(self, segments: list, document: EDIDocument) -> None:
         """Parse LIN/QTY/ZA loops for product activity."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         lin_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "LIN":
                 lin_indices.append(i)
         
@@ -161,8 +167,8 @@ class EDI852Parser(BaseEDIParser):
         total_on_hand = 0
         
         for idx, lin_idx in enumerate(lin_indices):
-            lin = segments[lin_idx]
-            end_idx = lin_indices[idx + 1] if idx + 1 < len(lin_indices) else len(segments)
+            lin = parsed_segments[lin_idx]
+            end_idx = lin_indices[idx + 1] if idx + 1 < len(lin_indices) else len(parsed_segments)
             
             line_item = {
                 "line_number": lin["elements"][0] if len(lin["elements"]) > 0 else str(idx + 1),
@@ -192,8 +198,8 @@ class EDI852Parser(BaseEDIParser):
             
             # Look for PID (Product Description)
             for i in range(lin_idx + 1, min(end_idx, lin_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "PID":
-                    pid = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "PID":
+                    pid = parsed_segments[i]
                     if len(pid["elements"]) > 4 and pid["elements"][4]:
                         line_item["description"] = pid["elements"][4]
                     break
@@ -201,8 +207,8 @@ class EDI852Parser(BaseEDIParser):
             # Parse QTY (Quantity Information) segments
             quantities = {}
             for i in range(lin_idx + 1, end_idx):
-                if i < len(segments) and segments[i]["id"] == "QTY":
-                    qty = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "QTY":
+                    qty = parsed_segments[i]
                     elements = qty["elements"]
                     
                     if len(elements) >= 2:
@@ -234,8 +240,8 @@ class EDI852Parser(BaseEDIParser):
             
             # Parse CTP (Pricing Information)
             for i in range(lin_idx + 1, min(end_idx, lin_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "CTP":
-                    ctp = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "CTP":
+                    ctp = parsed_segments[i]
                     elements = ctp["elements"]
                     
                     if len(elements) > 2 and elements[2]:
@@ -256,8 +262,8 @@ class EDI852Parser(BaseEDIParser):
             
             # Parse AMT (Monetary Amount)
             for i in range(lin_idx + 1, min(end_idx, lin_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "AMT":
-                    amt = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "AMT":
+                    amt = parsed_segments[i]
                     if len(amt["elements"]) >= 2:
                         try:
                             line_item["monetary_amount"] = float(amt["elements"][1])

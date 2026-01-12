@@ -151,14 +151,17 @@ class EDI880Parser(BaseEDIParser):
         """Parse party information."""
         parties = []
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
             party_code = n1["elements"][0] if len(n1["elements"]) > 0 else None
             
@@ -172,21 +175,21 @@ class EDI880Parser(BaseEDIParser):
             
             # Look for N2 (Additional Name)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "N2":
-                    n2 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "N2":
+                    n2 = parsed_segments[i]
                     if len(n2["elements"]) > 0 and n2["elements"][0]:
                         party["additional_name"] = n2["elements"][0]
                     break
             
             # Look for N3/N4
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments):
-                    if segments[i]["id"] == "N3":
-                        n3 = segments[i]
+                if i < len(parsed_segments):
+                    if parsed_segments[i]["id"] == "N3":
+                        n3 = parsed_segments[i]
                         party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
                         party["address_line2"] = n3["elements"][1] if len(n3["elements"]) > 1 else None
-                    elif segments[i]["id"] == "N4":
-                        n4 = segments[i]
+                    elif parsed_segments[i]["id"] == "N4":
+                        n4 = parsed_segments[i]
                         party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
                         party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
                         party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
@@ -199,9 +202,12 @@ class EDI880Parser(BaseEDIParser):
     def _parse_line_items(self, segments: list, document: EDIDocument) -> None:
         """Parse G17/IT1 line item loops for grocery invoice."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         # Try G17 first (grocery-specific)
         g17_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "G17":
                 g17_indices.append(i)
         
@@ -209,8 +215,8 @@ class EDI880Parser(BaseEDIParser):
         
         if g17_indices:
             for idx, g17_idx in enumerate(g17_indices):
-                g17 = segments[g17_idx]
-                end_idx = g17_indices[idx + 1] if idx + 1 < len(g17_indices) else len(segments)
+                g17 = parsed_segments[g17_idx]
+                end_idx = g17_indices[idx + 1] if idx + 1 < len(g17_indices) else len(parsed_segments)
                 
                 elements = g17["elements"]
                 
@@ -263,8 +269,8 @@ class EDI880Parser(BaseEDIParser):
                 
                 # Look for G19 (Quantity/Price Differences)
                 for i in range(g17_idx + 1, min(end_idx, g17_idx + 10)):
-                    if i < len(segments) and segments[i]["id"] == "G19":
-                        g19 = segments[i]
+                    if i < len(parsed_segments) and parsed_segments[i]["id"] == "G19":
+                        g19 = parsed_segments[i]
                         elements = g19["elements"]
                         
                         if len(elements) > 0 and elements[0]:
@@ -276,8 +282,8 @@ class EDI880Parser(BaseEDIParser):
                 # Look for G72 (Allowance or Charge)
                 allowances_charges = []
                 for i in range(g17_idx + 1, min(end_idx, g17_idx + 10)):
-                    if i < len(segments) and segments[i]["id"] == "G72":
-                        g72 = segments[i]
+                    if i < len(parsed_segments) and parsed_segments[i]["id"] == "G72":
+                        g72 = parsed_segments[i]
                         elements = g72["elements"]
                         
                         entry = {}
@@ -298,13 +304,13 @@ class EDI880Parser(BaseEDIParser):
         else:
             # Fallback to IT1 (standard invoice format)
             it1_indices = []
-            for i, seg in enumerate(segments):
+            for i, seg in enumerate(parsed_segments):
                 if seg["id"] == "IT1":
                     it1_indices.append(i)
             
             for idx, it1_idx in enumerate(it1_indices):
-                it1 = segments[it1_idx]
-                end_idx = it1_indices[idx + 1] if idx + 1 < len(it1_indices) else len(segments)
+                it1 = parsed_segments[it1_idx]
+                end_idx = it1_indices[idx + 1] if idx + 1 < len(it1_indices) else len(parsed_segments)
                 
                 elements = it1["elements"]
                 

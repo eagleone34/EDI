@@ -140,14 +140,17 @@ class EDI860Parser(BaseEDIParser):
         """Parse party information."""
         parties = []
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
             party_code = n1["elements"][0] if len(n1["elements"]) > 0 else None
             
@@ -161,12 +164,12 @@ class EDI860Parser(BaseEDIParser):
             
             # Look for N3/N4
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments):
-                    if segments[i]["id"] == "N3":
-                        n3 = segments[i]
+                if i < len(parsed_segments):
+                    if parsed_segments[i]["id"] == "N3":
+                        n3 = parsed_segments[i]
                         party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
-                    elif segments[i]["id"] == "N4":
-                        n4 = segments[i]
+                    elif parsed_segments[i]["id"] == "N4":
+                        n4 = parsed_segments[i]
                         party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
                         party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
                         party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
@@ -178,14 +181,17 @@ class EDI860Parser(BaseEDIParser):
     def _parse_line_items(self, segments: list, document: EDIDocument) -> None:
         """Parse POC (Line Item Change) segments."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         poc_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "POC":
                 poc_indices.append(i)
         
         for idx, poc_idx in enumerate(poc_indices):
-            poc = segments[poc_idx]
-            end_idx = poc_indices[idx + 1] if idx + 1 < len(poc_indices) else len(segments)
+            poc = parsed_segments[poc_idx]
+            end_idx = poc_indices[idx + 1] if idx + 1 < len(poc_indices) else len(parsed_segments)
             
             elements = poc["elements"]
             
@@ -234,16 +240,16 @@ class EDI860Parser(BaseEDIParser):
             
             # Look for PID (Product Description)
             for i in range(poc_idx + 1, min(end_idx, poc_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "PID":
-                    pid = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "PID":
+                    pid = parsed_segments[i]
                     if len(pid["elements"]) > 4 and pid["elements"][4]:
                         line_item["description"] = pid["elements"][4]
                     break
             
             # Look for QTY (Quantity) changes
             for i in range(poc_idx + 1, min(end_idx, poc_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "QTY":
-                    qty = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "QTY":
+                    qty = parsed_segments[i]
                     elements = qty["elements"]
                     
                     qty_qualifiers = {

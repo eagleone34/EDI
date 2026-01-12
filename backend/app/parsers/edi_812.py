@@ -385,43 +385,24 @@ class EDI812Parser(BaseEDIParser):
             party = {
                 "type_code": party_code,
                 "type": PARTY_TYPE_CODES.get(party_code, party_code),
-                "name": elements[1] if len(elements) > 1 else None,
+                "name": n1["elements"][1] if len(n1["elements"]) > 1 else None,
+                "id_qualifier": n1["elements"][2] if len(n1["elements"]) > 2 else None,
+                "id": n1["elements"][3] if len(n1["elements"]) > 3 else None,
             }
             
-            # ID qualifier and ID
-            if len(elements) > 2 and elements[2]:
-                party["id_qualifier"] = elements[2]
-                # Translate common qualifiers
-                qual_map = {"1": "DUNS", "9": "DUNS+4", "UL": "GLN (Global Location Number)", "92": "Assigned by Buyer"}
-                party["id_qualifier_desc"] = qual_map.get(elements[2], elements[2])
-            if len(elements) > 3 and elements[3]:
-                party["id"] = elements[3]
-            
-            # Additional name from N2 (if exists at same index)
-            if i < len(n2_segments):
-                n2 = n2_segments[i]
-                if len(n2["elements"]) > 0 and n2["elements"][0]:
-                    party["additional_name"] = n2["elements"][0]
-            
-            # Address from N3 (if exists at same index)
-            if i < len(n3_segments):
-                n3 = n3_segments[i]
-                if len(n3["elements"]) > 0:
-                    party["address_line1"] = n3["elements"][0]
-                if len(n3["elements"]) > 1:
-                    party["address_line2"] = n3["elements"][1]
-            
-            # City/State/Zip from N4 (if exists at same index)
-            if i < len(n4_segments):
-                n4 = n4_segments[i]
-                if len(n4["elements"]) > 0:
-                    party["city"] = n4["elements"][0]
-                if len(n4["elements"]) > 1:
-                    party["state"] = n4["elements"][1]
-                if len(n4["elements"]) > 2:
-                    party["zip"] = n4["elements"][2]
-                if len(n4["elements"]) > 3:
-                    party["country"] = n4["elements"][3]
+            # Look for N2/N3/N4
+            for i in range(n1_idx + 1, min(end_idx, n1_idx + 10)):
+                if i < len(parsed_segments):
+                    if parsed_segments[i]["id"] == "N3":
+                        n3 = parsed_segments[i]
+                        party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
+                        party["address_line2"] = n3["elements"][1] if len(n3["elements"]) > 1 else None
+                    elif parsed_segments[i]["id"] == "N4":
+                        n4 = parsed_segments[i]
+                        party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
+                        party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
+                        party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
+                        party["country"] = n4["elements"][3] if len(n4["elements"]) > 3 else None
             
             parties.append(party)
         

@@ -151,14 +151,17 @@ class EDI870Parser(BaseEDIParser):
         """Parse party information."""
         parties = []
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
             party_code = n1["elements"][0] if len(n1["elements"]) > 0 else None
             
@@ -172,12 +175,12 @@ class EDI870Parser(BaseEDIParser):
             
             # Look for N3/N4
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments):
-                    if segments[i]["id"] == "N3":
-                        n3 = segments[i]
+                if i < len(parsed_segments):
+                    if parsed_segments[i]["id"] == "N3":
+                        n3 = parsed_segments[i]
                         party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
-                    elif segments[i]["id"] == "N4":
-                        n4 = segments[i]
+                    elif parsed_segments[i]["id"] == "N4":
+                        n4 = parsed_segments[i]
                         party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
                         party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
                         party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
@@ -189,15 +192,18 @@ class EDI870Parser(BaseEDIParser):
     def _parse_status_items(self, segments: list, document: EDIDocument) -> None:
         """Parse HL/PRF/ISR loops for order status items."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         # Find PRF (Purchase Order Reference) segments
         prf_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "PRF":
                 prf_indices.append(i)
         
         # If no PRF, try ISR (Item Status Report) segments
         isr_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "ISR":
                 isr_indices.append(i)
         
@@ -205,8 +211,8 @@ class EDI870Parser(BaseEDIParser):
         
         if prf_indices:
             for idx, prf_idx in enumerate(prf_indices):
-                prf = segments[prf_idx]
-                end_idx = prf_indices[idx + 1] if idx + 1 < len(prf_indices) else len(segments)
+                prf = parsed_segments[prf_idx]
+                end_idx = prf_indices[idx + 1] if idx + 1 < len(prf_indices) else len(parsed_segments)
                 
                 line_item = {
                     "line_number": str(len(document.line_items) + 1),
@@ -222,8 +228,8 @@ class EDI870Parser(BaseEDIParser):
                 
                 # Look for ISR within this loop
                 for i in range(prf_idx + 1, min(end_idx, prf_idx + 15)):
-                    if i < len(segments) and segments[i]["id"] == "ISR":
-                        isr = segments[i]
+                    if i < len(parsed_segments) and parsed_segments[i]["id"] == "ISR":
+                        isr = parsed_segments[i]
                         elements = isr["elements"]
                         
                         # ISR01 - Item Status Code
@@ -245,8 +251,8 @@ class EDI870Parser(BaseEDIParser):
                 
                 # Look for QTY (Quantity Information)
                 for i in range(prf_idx + 1, min(end_idx, prf_idx + 15)):
-                    if i < len(segments) and segments[i]["id"] == "QTY":
-                        qty = segments[i]
+                    if i < len(parsed_segments) and parsed_segments[i]["id"] == "QTY":
+                        qty = parsed_segments[i]
                         elements = qty["elements"]
                         
                         qty_qualifiers = {
@@ -268,8 +274,8 @@ class EDI870Parser(BaseEDIParser):
                 
                 # Look for PID (Product Description)
                 for i in range(prf_idx + 1, min(end_idx, prf_idx + 15)):
-                    if i < len(segments) and segments[i]["id"] == "PID":
-                        pid = segments[i]
+                    if i < len(parsed_segments) and parsed_segments[i]["id"] == "PID":
+                        pid = parsed_segments[i]
                         if len(pid["elements"]) > 4 and pid["elements"][4]:
                             line_item["description"] = pid["elements"][4]
                         break
@@ -279,7 +285,7 @@ class EDI870Parser(BaseEDIParser):
         elif isr_indices:
             # ISR segments without PRF wrapper
             for idx, isr_idx in enumerate(isr_indices):
-                isr = segments[isr_idx]
+                isr = parsed_segments[isr_idx]
                 elements = isr["elements"]
                 
                 line_item = {

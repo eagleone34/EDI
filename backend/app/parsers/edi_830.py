@@ -136,14 +136,17 @@ class EDI830Parser(BaseEDIParser):
         """Parse party information."""
         parties = []
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
             party_code = n1["elements"][0] if len(n1["elements"]) > 0 else None
             
@@ -157,12 +160,12 @@ class EDI830Parser(BaseEDIParser):
             
             # Look for N3/N4
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments):
-                    if segments[i]["id"] == "N3":
-                        n3 = segments[i]
+                if i < len(parsed_segments):
+                    if parsed_segments[i]["id"] == "N3":
+                        n3 = parsed_segments[i]
                         party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
-                    elif segments[i]["id"] == "N4":
-                        n4 = segments[i]
+                    elif parsed_segments[i]["id"] == "N4":
+                        n4 = parsed_segments[i]
                         party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
                         party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
                         party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
@@ -174,14 +177,17 @@ class EDI830Parser(BaseEDIParser):
     def _parse_line_items(self, segments: list, document: EDIDocument) -> None:
         """Parse LIN/FST/SHP loops for schedule line items."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         lin_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "LIN":
                 lin_indices.append(i)
         
         for idx, lin_idx in enumerate(lin_indices):
-            lin = segments[lin_idx]
-            end_idx = lin_indices[idx + 1] if idx + 1 < len(lin_indices) else len(segments)
+            lin = parsed_segments[lin_idx]
+            end_idx = lin_indices[idx + 1] if idx + 1 < len(lin_indices) else len(parsed_segments)
             
             line_item = {
                 "line_number": lin["elements"][0] if len(lin["elements"]) > 0 else str(idx + 1),
@@ -209,15 +215,15 @@ class EDI830Parser(BaseEDIParser):
             
             # Look for UIT (Unit Detail)
             for i in range(lin_idx + 1, min(end_idx, lin_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "UIT":
-                    uit = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "UIT":
+                    uit = parsed_segments[i]
                     line_item["unit"] = uit["elements"][0] if len(uit["elements"]) > 0 else None
                     break
             
             # Look for PID (Description)
             for i in range(lin_idx + 1, min(end_idx, lin_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "PID":
-                    pid = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "PID":
+                    pid = parsed_segments[i]
                     if len(pid["elements"]) > 4 and pid["elements"][4]:
                         line_item["description"] = pid["elements"][4]
                     break
@@ -225,8 +231,8 @@ class EDI830Parser(BaseEDIParser):
             # Parse FST (Forecast Schedule) segments
             forecasts = []
             for i in range(lin_idx + 1, end_idx):
-                if i < len(segments) and segments[i]["id"] == "FST":
-                    fst = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "FST":
+                    fst = parsed_segments[i]
                     elements = fst["elements"]
                     
                     forecast = {}
@@ -266,8 +272,8 @@ class EDI830Parser(BaseEDIParser):
             # Parse SHP (Shipped/Received Information)
             shipments = []
             for i in range(lin_idx + 1, end_idx):
-                if i < len(segments) and segments[i]["id"] == "SHP":
-                    shp = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "SHP":
+                    shp = parsed_segments[i]
                     elements = shp["elements"]
                     
                     ship_entry = {}

@@ -182,14 +182,17 @@ class EDI820Parser(BaseEDIParser):
         """Parse party information."""
         parties = []
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
+            n1 = parsed_segments[n1_idx]
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
             party_code = n1["elements"][0] if len(n1["elements"]) > 0 else None
             
@@ -203,16 +206,16 @@ class EDI820Parser(BaseEDIParser):
             
             # Look for N3 (Address)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "N3":
-                    n3 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "N3":
+                    n3 = parsed_segments[i]
                     party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
                     party["address_line2"] = n3["elements"][1] if len(n3["elements"]) > 1 else None
                     break
             
             # Look for N4 (Geographic Location)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "N4":
-                    n4 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "N4":
+                    n4 = parsed_segments[i]
                     party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
                     party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
                     party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
@@ -226,9 +229,12 @@ class EDI820Parser(BaseEDIParser):
     def _parse_remittance_details(self, segments: list, document: EDIDocument) -> None:
         """Parse ENT/RMR/REF/ADX loops for remittance details."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         # Find RMR segments (Remittance Advice Accounts Receivable Open Item Reference)
         rmr_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "RMR":
                 rmr_indices.append(i)
         
@@ -236,8 +242,8 @@ class EDI820Parser(BaseEDIParser):
         total_adjustments = 0
         
         for idx, rmr_idx in enumerate(rmr_indices):
-            rmr = segments[rmr_idx]
-            end_idx = rmr_indices[idx + 1] if idx + 1 < len(rmr_indices) else len(segments)
+            rmr = parsed_segments[rmr_idx]
+            end_idx = rmr_indices[idx + 1] if idx + 1 < len(rmr_indices) else len(parsed_segments)
             
             elements = rmr["elements"]
             
@@ -291,8 +297,8 @@ class EDI820Parser(BaseEDIParser):
             # Look for ADX (Adjustment) segments
             adjustments = []
             for i in range(rmr_idx + 1, min(end_idx, rmr_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "ADX":
-                    adx = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "ADX":
+                    adx = parsed_segments[i]
                     adj_elements = adx["elements"]
                     
                     adjustment = {}
@@ -320,8 +326,8 @@ class EDI820Parser(BaseEDIParser):
             # Look for REF segments within this loop
             refs = []
             for i in range(rmr_idx + 1, min(end_idx, rmr_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "REF":
-                    ref = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "REF":
+                    ref = parsed_segments[i]
                     if len(ref["elements"]) >= 2:
                         refs.append({
                             "qualifier": ref["elements"][0],

@@ -277,17 +277,20 @@ class EDI850Parser(BaseEDIParser):
         
         document.header["parties"] = []
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         # Find all N1 segment indices
         n1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "N1":
                 n1_indices.append(i)
         
         for idx, n1_idx in enumerate(n1_indices):
-            n1 = segments[n1_idx]
+            n1 = parsed_segments[n1_idx]
             
             # Determine loop end (next N1 or end of party loop indicators)
-            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(segments)
+            end_idx = n1_indices[idx + 1] if idx + 1 < len(n1_indices) else len(parsed_segments)
             
             party = {
                 "type_code": n1["elements"][0] if len(n1["elements"]) > 0 else None,
@@ -302,22 +305,22 @@ class EDI850Parser(BaseEDIParser):
             
             # Look for N2 (Additional Name)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "N2":
-                    n2 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "N2":
+                    n2 = parsed_segments[i]
                     if n2["elements"]:
                         party["name2"] = n2["elements"][0]
             
             # Look for N3 (Address)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "N3":
-                    n3 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "N3":
+                    n3 = parsed_segments[i]
                     party["address_line1"] = n3["elements"][0] if len(n3["elements"]) > 0 else None
                     party["address_line2"] = n3["elements"][1] if len(n3["elements"]) > 1 else None
             
             # Look for N4 (Geographic Location)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "N4":
-                    n4 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "N4":
+                    n4 = parsed_segments[i]
                     party["city"] = n4["elements"][0] if len(n4["elements"]) > 0 else None
                     party["state"] = n4["elements"][1] if len(n4["elements"]) > 1 else None
                     party["zip"] = n4["elements"][2] if len(n4["elements"]) > 2 else None
@@ -325,8 +328,8 @@ class EDI850Parser(BaseEDIParser):
             
             # Look for PER (Administrative Contact)
             for i in range(n1_idx + 1, min(end_idx, n1_idx + 5)):
-                if i < len(segments) and segments[i]["id"] == "PER":
-                    per = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "PER":
+                    per = parsed_segments[i]
                     party["contact_type"] = per["elements"][0] if len(per["elements"]) > 0 else None
                     party["contact_name"] = per["elements"][1] if len(per["elements"]) > 1 else None
                     party["contact_qualifier"] = per["elements"][2] if len(per["elements"]) > 2 else None
@@ -337,17 +340,20 @@ class EDI850Parser(BaseEDIParser):
     def _parse_line_item_loops(self, segments: list, document: EDIDocument) -> None:
         """Parse PO1/PID/ACK loops for line item information with descriptions."""
         
+        # Parse all segments first since we need to look ahead
+        parsed_segments = [self._parse_segment(s) for s in segments]
+        
         # Find all PO1 segment indices
         po1_indices = []
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(parsed_segments):
             if seg["id"] == "PO1":
                 po1_indices.append(i)
         
         for idx, po1_idx in enumerate(po1_indices):
-            po1 = segments[po1_idx]
+            po1 = parsed_segments[po1_idx]
             
             # Determine loop end (next PO1 or end of segments)
-            end_idx = po1_indices[idx + 1] if idx + 1 < len(po1_indices) else len(segments)
+            end_idx = po1_indices[idx + 1] if idx + 1 < len(po1_indices) else len(parsed_segments)
             
             line_item = {
                 "line_number": po1["elements"][0] if len(po1["elements"]) > 0 else None,
@@ -398,8 +404,8 @@ class EDI850Parser(BaseEDIParser):
             # Look for PID (Product/Item Description)
             descriptions = []
             for i in range(po1_idx + 1, min(end_idx, po1_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "PID":
-                    pid = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "PID":
+                    pid = parsed_segments[i]
                     # PID element 4 is typically the description
                     if len(pid["elements"]) > 4 and pid["elements"][4]:
                         descriptions.append(pid["elements"][4])
@@ -408,8 +414,8 @@ class EDI850Parser(BaseEDIParser):
             
             # Look for PO4 (Item Physical Details / Pack)
             for i in range(po1_idx + 1, min(end_idx, po1_idx + 10)):
-                if i < len(segments) and segments[i]["id"] == "PO4":
-                    po4 = segments[i]
+                if i < len(parsed_segments) and parsed_segments[i]["id"] == "PO4":
+                    po4 = parsed_segments[i]
                     line_item["pack"] = po4["elements"][0] if len(po4["elements"]) > 0 else ""
                     line_item["inner_pack"] = po4["elements"][1] if len(po4["elements"]) > 1 else ""
                     line_item["gross_weight"] = po4["elements"][5] if len(po4["elements"]) > 5 else ""
