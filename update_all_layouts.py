@@ -19,18 +19,45 @@ LAYOUT_CONFIGS = {
         "theme_color": "#2563eb",
         "sections": [
             {
+                "id": "summary",
+                "title": "Summary",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "invoice_number", "label": "Invoice Number", "type": "text", "visible": True, "style": "bold"},
+                    {"key": "invoice_date", "label": "Invoice Date", "type": "date", "visible": True},
+                    {"key": "total_amount", "label": "Total Amount", "type": "currency", "visible": True, "style": "bold"},
+                    {"key": "po_number", "label": "PO Number", "type": "text", "visible": True},
+                    {"key": "currency", "label": "Currency", "type": "text", "visible": True},
+                ],
+                "columns": []
+            },
+            {
                 "id": "invoice_info",
                 "title": "Invoice Information",
                 "type": "fields",
                 "visible": True,
                 "fields": [
-                    {"key": "invoice_number", "label": "Invoice #", "type": "text", "visible": True, "style": "bold"},
-                    {"key": "invoice_date", "label": "Invoice Date", "type": "date", "visible": True},
-                    {"key": "po_number", "label": "PO Number", "type": "text", "visible": True},
-                    {"key": "po_date", "label": "PO Date", "type": "date", "visible": True},
+                    {"key": "invoice_date", "label": "Date", "type": "date", "visible": True},
+                    {"key": "invoice_number", "label": "Invoice Number", "type": "text", "visible": True, "style": "bold"},
+                    {"key": "po_number", "label": "Purchase Order Number", "type": "text", "visible": True},
                     {"key": "transaction_type_code", "label": "Transaction Type", "type": "text", "visible": True},
-                    {"key": "currency", "label": "Currency", "type": "text", "visible": True},
-                    {"key": "payment_terms", "label": "Payment Terms", "type": "text", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "terms",
+                "title": "Terms of Sale",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "terms_type", "label": "Terms Type Code", "type": "text", "visible": True},
+                    {"key": "terms_discount_percent", "label": "Terms Discount Percent", "type": "text", "visible": True},
+                    {"key": "terms_discount_date", "label": "Terms Discount Due Date", "type": "date", "visible": True},
+                    {"key": "terms_discount_days", "label": "Terms Discount Days Due", "type": "text", "visible": True},
+                    {"key": "terms_net_date", "label": "Terms Net Due Date", "type": "date", "visible": True},
+                    {"key": "terms_net_days", "label": "Terms Net Days", "type": "text", "visible": True},
+                    {"key": "terms_description", "label": "Description", "type": "text", "visible": True},
                 ],
                 "columns": []
             },
@@ -97,6 +124,21 @@ LAYOUT_CONFIGS = {
         "title_format": "Credit/Debit Adjustment #{credit_debit_number}",
         "theme_color": "#dc2626",
         "sections": [
+            {
+                "id": "summary",
+                "title": "Summary",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "credit_debit_number", "label": "Adjustment Number", "type": "text", "visible": True, "style": "bold"},
+                    {"key": "credit_debit_flag_desc", "label": "Type", "type": "text", "visible": True, "style": "highlight"},
+                    {"key": "amount", "label": "Total Amount", "type": "currency", "visible": True, "style": "bold"},
+                    {"key": "adjustment_date", "label": "Date", "type": "date", "visible": True},
+                    {"key": "invoice_number", "label": "Invoice", "type": "text", "visible": True},
+                    {"key": "po_number", "label": "PO Number", "type": "text", "visible": True},
+                ],
+                "columns": []
+            },
             {
                 "id": "general_info",
                 "title": "General Information",
@@ -305,17 +347,32 @@ LAYOUT_CONFIGS = {
         "theme_color": "#0891b2",
         "sections": [
             {
-                "id": "schedule_info",
-                "title": "Schedule Information",
+                "id": "summary",
+                "title": "Summary",
                 "type": "fields",
                 "visible": True,
                 "fields": [
-                    {"key": "schedule_id", "label": "Schedule ID", "type": "text", "visible": True, "style": "bold"},
-                    {"key": "schedule_date", "label": "Schedule Date", "type": "date", "visible": True},
-                    {"key": "schedule_type", "label": "Schedule Type", "type": "text", "visible": True},
-                    {"key": "purpose", "label": "Purpose", "type": "text", "visible": True},
-                    {"key": "horizon_start", "label": "Horizon Start", "type": "date", "visible": True},
-                    {"key": "horizon_end", "label": "Horizon End", "type": "date", "visible": True},
+                    {"key": "schedule_id", "label": "Reference Number", "type": "text", "visible": True, "style": "bold"},
+                    {"key": "purpose", "label": "Transaction Purpose Code", "type": "text", "visible": True},
+                    {"key": "schedule_date", "label": "Issue Date", "type": "date", "visible": True},
+                    {"key": "forecast_type", "label": "Forecast Type", "type": "text", "visible": True},
+                    {"key": "total_line_items", "label": "Total Line Items", "type": "number", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "schedule_info",
+                "title": "General Information",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "purpose", "label": "Transaction Purpose Code", "type": "text", "visible": True},
+                    {"key": "horizon_start", "label": "Schedule Horizon Start Date", "type": "date", "visible": True},
+                    {"key": "horizon_end", "label": "Schedule Horizon End Date", "type": "date", "visible": True},
+                    {"key": "schedule_date", "label": "Issue Date", "type": "date", "visible": True},
+                    {"key": "schedule_id", "label": "Reference Number", "type": "text", "visible": True, "style": "bold"},
+                    {"key": "forecast_type", "label": "Forecast Type", "type": "text", "visible": True},
+                    {"key": "schedule_quantity_type", "label": "Schedule Quantity", "type": "text", "visible": True},
                 ],
                 "columns": []
             },
@@ -354,18 +411,52 @@ LAYOUT_CONFIGS = {
         "theme_color": "#2563eb",
         "sections": [
             {
-                "id": "order_info",
-                "title": "Order Information",
+                "id": "summary",
+                "title": "Summary",
                 "type": "fields",
                 "visible": True,
                 "fields": [
-                    {"key": "po_number", "label": "PO Number", "type": "text", "visible": True, "style": "bold"},
-                    {"key": "po_date", "label": "PO Date", "type": "date", "visible": True},
-                    {"key": "purpose", "label": "Purpose", "type": "text", "visible": True},
-                    {"key": "order_type", "label": "Order Type", "type": "text", "visible": True},
-                    {"key": "currency", "label": "Currency", "type": "text", "visible": True},
-                    {"key": "payment_terms", "label": "Payment Terms", "type": "text", "visible": True},
-                    {"key": "fob", "label": "FOB", "type": "text", "visible": True},
+                    {"key": "po_number", "label": "Purchase Order Number", "type": "text", "visible": True, "style": "bold"},
+                    {"key": "po_date", "label": "Purchase Order Date", "type": "date", "visible": True},
+                    {"key": "purpose", "label": "Transaction Purpose Code", "type": "text", "visible": True},
+                    {"key": "order_type", "label": "Purchase Order Type Code", "type": "text", "visible": True},
+                    {"key": "total_line_items", "label": "Total Line Items", "type": "number", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "order_info",
+                "title": "General Information",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "po_number", "label": "Purchase Order Number", "type": "text", "visible": True, "style": "bold"},
+                    {"key": "purpose", "label": "Transaction Purpose Code", "type": "text", "visible": True},
+                    {"key": "po_date", "label": "Purchase Order Date", "type": "date", "visible": True},
+                    {"key": "order_type", "label": "Purchase Order Type Code", "type": "text", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "contact_info",
+                "title": "Contact Information",
+                "type": "table",
+                "visible": True,
+                "data_source_key": "contacts",
+                "fields": [],
+                "columns": [
+                    {"key": "name", "label": "Buyer Name or Department", "type": "text", "visible": True},
+                    {"key": "comm_number", "label": "Telephone", "type": "text", "visible": True},
+                ]
+            },
+            {
+                "id": "terms",
+                "title": "Terms of Sale",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "terms_type", "label": "Terms Type Code", "type": "text", "visible": True},
+                    {"key": "terms_description", "label": "Description", "type": "text", "visible": True},
                 ],
                 "columns": []
             },
@@ -780,15 +871,28 @@ LAYOUT_CONFIGS = {
         "theme_color": "#6366f1",
         "sections": [
             {
-                "id": "report_info",
-                "title": "Report Information",
+                "id": "summary",
+                "title": "Summary",
                 "type": "fields",
                 "visible": True,
                 "fields": [
-                    {"key": "report_id", "label": "Report ID", "type": "text", "visible": True, "style": "bold"},
-                    {"key": "report_date", "label": "Report Date", "type": "date", "visible": True},
-                    {"key": "status_report", "label": "Overall Status", "type": "status", "visible": True},
-                    {"key": "purpose", "label": "Purpose", "type": "text", "visible": True},
+                    {"key": "report_id", "label": "Reference Identification", "type": "text", "visible": True, "style": "bold"},
+                    {"key": "status_report", "label": "Status Report Code", "type": "text", "visible": True, "style": "highlight"},
+                    {"key": "report_date", "label": "Date", "type": "date", "visible": True},
+                    {"key": "order_item_code", "label": "Order/Item Code", "type": "text", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "report_info",
+                "title": "General Information",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "status_report", "label": "Status Report Code", "type": "text", "visible": True},
+                    {"key": "order_item_code", "label": "Order/Item Code", "type": "text", "visible": True},
+                    {"key": "report_id", "label": "Reference Identification", "type": "text", "visible": True, "style": "bold"},
+                    {"key": "report_date", "label": "Date", "type": "date", "visible": True},
                 ],
                 "columns": []
             },
@@ -824,33 +928,73 @@ LAYOUT_CONFIGS = {
         ]
     },
     "875": {
-        "title_format": "Grocery PO #{po_number}",
+        "title_format": "Grocery Products Purchase Order #{po_number}",
         "theme_color": "#15803d",
         "sections": [
             {
-                "id": "order_info",
-                "title": "Order Information",
+                "id": "summary",
+                "title": "Summary",
                 "type": "fields",
                 "visible": True,
                 "fields": [
-                    {"key": "po_number", "label": "PO Number", "type": "text", "visible": True, "style": "bold"},
-                    {"key": "po_date", "label": "PO Date", "type": "date", "visible": True},
-                    {"key": "ship_date", "label": "Ship Date", "type": "date", "visible": True},
-                    {"key": "order_type", "label": "Order Type", "type": "text", "visible": True},
+                    {"key": "po_number", "label": "Purchase Order Number", "type": "text", "visible": True, "style": "bold"},
+                    {"key": "po_date", "label": "Date", "type": "date", "visible": True},
+                    {"key": "order_status", "label": "Order Status Code", "type": "text", "visible": True},
+                    {"key": "total_amount", "label": "Total Amount", "type": "currency", "visible": True, "style": "bold"},
+                    {"key": "total_quantity", "label": "Quantity Ordered", "type": "number", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "order_info",
+                "title": "Purchase Order Identification",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "order_status", "label": "Order Status Code", "type": "text", "visible": True},
+                    {"key": "po_date", "label": "Date", "type": "date", "visible": True},
+                    {"key": "po_number", "label": "Purchase Order Number", "type": "text", "visible": True, "style": "bold"},
+                ],
+                "columns": []
+            },
+            {
+                "id": "transportation",
+                "title": "Transportation Instructions",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "shipment_method", "label": "Shipment Method of Payment", "type": "text", "visible": True},
+                    {"key": "transport_method", "label": "Transportation Method/Type Code", "type": "text", "visible": True},
+                    {"key": "unit_load_option", "label": "Unit Load Option Code", "type": "text", "visible": True},
+                ],
+                "columns": []
+            },
+            {
+                "id": "terms",
+                "title": "Terms of Sale",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "terms_type", "label": "Terms Type Code", "type": "text", "visible": True},
+                    {"key": "terms_basis_date", "label": "Terms Basis Date Code", "type": "text", "visible": True},
+                    {"key": "terms_discount_percent", "label": "Terms Discount Percent", "type": "text", "visible": True},
+                    {"key": "terms_discount_days", "label": "Terms Discount Days Due", "type": "text", "visible": True},
+                    {"key": "terms_net_days", "label": "Terms Net Days", "type": "text", "visible": True},
+                    {"key": "terms_description", "label": "Free Form Message", "type": "text", "visible": True},
                 ],
                 "columns": []
             },
             {
                 "id": "parties",
-                "title": "Entities & Parties",
+                "title": "Parties",
                 "type": "table",
                 "visible": True,
                 "data_source_key": "parties",
                 "fields": [],
                 "columns": [
-                    {"key": "type", "label": "Party Type", "type": "text", "visible": True},
+                    {"key": "type", "label": "Role", "type": "text", "visible": True},
                     {"key": "name", "label": "Name", "type": "text", "visible": True},
-                    {"key": "id", "label": "ID", "type": "text", "visible": True},
+                    {"key": "id", "label": "ID (D-U-N-S+4)", "type": "text", "visible": True},
                     {"key": "address_line1", "label": "Address", "type": "text", "visible": True},
                 ]
             },

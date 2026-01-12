@@ -34,6 +34,21 @@ def seed_layouts():
             "theme_color": "#dc2626",
             "sections": [
                 {
+                    "id": "summary",
+                    "title": "Summary",
+                    "type": "fields",
+                    "visible": True,
+                    "fields": [
+                        {"key": "credit_debit_number", "label": "Adjustment Number", "type": "text", "visible": True, "style": "bold"},
+                        {"key": "credit_debit_flag_desc", "label": "Type", "type": "text", "visible": True, "style": "highlight"},
+                        {"key": "amount", "label": "Total Amount", "type": "currency", "visible": True, "style": "bold"},
+                        {"key": "adjustment_date", "label": "Date", "type": "date", "visible": True},
+                        {"key": "invoice_number", "label": "Invoice", "type": "text", "visible": True},
+                        {"key": "po_number", "label": "PO Number", "type": "text", "visible": True},
+                    ],
+                    "columns": []
+                },
+                {
                     "id": "general_info",
                     "title": "General Information",
                     "type": "fields",
