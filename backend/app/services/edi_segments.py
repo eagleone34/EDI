@@ -55,19 +55,22 @@ EDI_SEGMENT_MAP = {
         "TDS01": {"key": "total_amount", "description": "Total Amount Due"},
     },
     "812": {
-        # Memo Information
-        "BCD01": {"key": "date", "description": "Transaction Date"},
+        # Memo Information (header fields)
+        "BCD01": {"key": "adjustment_date", "description": "Transaction Date"},
         "BCD02": {"key": "credit_debit_number", "description": "Credit/Debit Memo Number"},
-        "BCD03": {"key": "transaction_handling_code", "description": "Handling Code"},
+        "BCD03": {"key": "transaction_handling_desc", "description": "Handling Code"},
         "BCD04": {"key": "amount", "description": "Total Amount"},
-        "BCD05": {"key": "credit_debit_flag", "description": "Credit/Debit Flag"},
-        "REF02_IV": {"key": "invoice_number", "description": "Invoice Number"},
-        "REF02_PO": {"key": "po_number", "description": "PO Number"},
-        "CUR01": {"key": "currency", "description": "Currency Code"},
+        "BCD05": {"key": "credit_debit_flag_desc", "description": "Credit/Debit Flag"},
+        "BCD06": {"key": "secondary_date", "description": "Invoice Date"},
+        "BCD07": {"key": "invoice_number", "description": "Invoice Number"},
+        "BCD09": {"key": "po_number", "description": "PO Number"},
+        "BCD10": {"key": "purpose", "description": "Purpose"},
+        "BCD11": {"key": "transaction_type_desc", "description": "Transaction Type"},
+        "CUR02": {"key": "currency", "description": "Currency Code"},
         # Contact Information
         "PER02": {"key": "contact_name", "description": "Contact Name"},
-        "PER04": {"key": "contact_number", "description": "Contact Phone"},
-        # Entities & Parties (table)
+        "PER04": {"key": "comm_number", "description": "Contact Phone"},
+        # Entities & Parties (table - from header.parties)
         "N101": {"key": "type", "description": "Entity Identifier Code"},
         "N102": {"key": "name", "description": "Party Name"},
         "N104": {"key": "id", "description": "Party Identification Code"},
@@ -75,16 +78,20 @@ EDI_SEGMENT_MAP = {
         "N401": {"key": "city", "description": "City Name"},
         "N402": {"key": "state", "description": "State/Province Code"},
         "N403": {"key": "zip", "description": "Postal Code"},
-        # Adjustment Details (table)
-        "CDD01": {"key": "reason", "description": "Adjustment Reason Code"},
-        "CDD02": {"key": "type", "description": "Credit/Debit Type"},
-        "CDD04": {"key": "amount", "description": "Adjustment Amount"},
+        # Adjustment Details (table - line items from CDD segments)
+        "CDD01": {"key": "adjustment_reason", "description": "Adjustment Reason"},
+        "CDD02": {"key": "credit_debit_type", "description": "Credit/Debit Type"},
+        "CDD03": {"key": "assigned_id", "description": "Assigned ID"},
+        "CDD04": {"key": "adjustment_amount", "description": "Adjustment Amount"},
+        "CDD05": {"key": "quantity", "description": "Quantity"},
+        "CDD06": {"key": "unit", "description": "Unit of Measure"},
+        "CDD08": {"key": "unit_price", "description": "Unit Price"},
         "LIN02": {"key": "product_id", "description": "Product ID"},
         "PID05": {"key": "description", "description": "Product Description"},
         "MSG01": {"key": "message", "description": "Message Text"},
         # Summary
         "CTT01": {"key": "total_line_items", "description": "Total Line Items"},
-        "CALC": {"key": "total_amount", "description": "Total Amount"},
+        "TDS01": {"key": "total_amount", "description": "Total Amount"},
     },
     "816": {
         # Document Information

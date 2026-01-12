@@ -94,7 +94,7 @@ LAYOUT_CONFIGS = {
         ]
     },
     "812": {
-        "title_format": "Credit/Debit Memo #{credit_debit_number}",
+        "title_format": "Credit/Debit Adjustment #{credit_debit_number}",
         "theme_color": "#dc2626",
         "sections": [
             {
@@ -104,10 +104,10 @@ LAYOUT_CONFIGS = {
                 "visible": True,
                 "fields": [
                     {"key": "credit_debit_number", "label": "Memo #", "type": "text", "visible": True, "style": "bold"},
-                    {"key": "date", "label": "Date", "type": "date", "visible": True},
-                    {"key": "credit_flag", "label": "Type", "type": "text", "visible": True},
+                    {"key": "adjustment_date", "label": "Date", "type": "date", "visible": True},
+                    {"key": "credit_debit_flag_desc", "label": "Type", "type": "text", "visible": True},
                     {"key": "amount", "label": "Amount", "type": "currency", "visible": True, "style": "bold"},
-                    {"key": "original_invoice_number", "label": "Original Invoice", "type": "text", "visible": True},
+                    {"key": "invoice_number", "label": "Original Invoice", "type": "text", "visible": True},
                     {"key": "currency", "label": "Currency", "type": "text", "visible": True},
                 ],
                 "columns": []
@@ -126,19 +126,6 @@ LAYOUT_CONFIGS = {
                 ]
             },
             {
-                "id": "adjustments",
-                "title": "Adjustments",
-                "type": "table",
-                "visible": True,
-                "data_source_key": "adjustments",
-                "fields": [],
-                "columns": [
-                    {"key": "reason", "label": "Reason", "type": "text", "visible": True},
-                    {"key": "amount", "label": "Amount", "type": "currency", "visible": True},
-                    {"key": "type", "label": "Type", "type": "text", "visible": True},
-                ]
-            },
-            {
                 "id": "line_items",
                 "title": "Line Items",
                 "type": "table",
@@ -148,10 +135,23 @@ LAYOUT_CONFIGS = {
                 "columns": [
                     {"key": "line_number", "label": "#", "type": "text", "visible": True},
                     {"key": "product_id", "label": "Product ID", "type": "text", "visible": True},
-                    {"key": "description", "label": "Description", "type": "text", "visible": True},
+                    {"key": "adjustment_reason", "label": "Reason", "type": "text", "visible": True},
                     {"key": "quantity", "label": "Qty", "type": "number", "visible": True},
                     {"key": "unit_price", "label": "Unit Price", "type": "currency", "visible": True},
+                    {"key": "adjustment_amount", "label": "Amount", "type": "currency", "visible": True},
+                    {"key": "credit_debit_type", "label": "Type", "type": "text", "visible": True},
                 ]
+            },
+            {
+                "id": "summary",
+                "title": "Summary",
+                "type": "fields",
+                "visible": True,
+                "fields": [
+                    {"key": "total_line_items", "label": "Total Line Items", "type": "number", "visible": True},
+                    {"key": "total_amount", "label": "Total Amount", "type": "currency", "visible": True, "style": "bold"},
+                ],
+                "columns": []
             }
         ]
     },
