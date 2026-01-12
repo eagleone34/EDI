@@ -178,7 +178,7 @@ class EDI810Parser(BaseEDIParser):
                 document.header["dates"][date_label] = self._format_date(date_value)
         
         # Parse N1/N2/N3/N4 (Party Information with Addresses)
-        document.header["parties"] = self._parse_party_loops(segments)
+        document.header["parties"] = self._parse_parties(segments)
         
         # Extract specific parties for display
         for party in document.header.get("parties", []):

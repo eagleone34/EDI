@@ -221,8 +221,11 @@ class BaseEDIParser(ABC):
         
         return segments
     
-    def _parse_segment(self, segment: str) -> Dict[str, Any]:
+    def _parse_segment(self, segment: Union[str, Dict]) -> Dict[str, Any]:
         """Parse a single segment into elements."""
+        if isinstance(segment, dict):
+            return segment
+            
         elements = segment.split(self.element_separator)
         return {
             "id": elements[0] if elements else "",

@@ -278,7 +278,9 @@ class EDI850Parser(BaseEDIParser):
         document.header["parties"] = []
         
         # Parse all segments first since we need to look ahead
-        parsed_segments = [self._parse_segment(s) for s in segments]
+        # Parse all segments first since we need to look ahead
+        # segments argument is already parsed from _parse_segments
+        parsed_segments = segments
         
         # Find all N1 segment indices
         n1_indices = []
@@ -341,7 +343,9 @@ class EDI850Parser(BaseEDIParser):
         """Parse PO1/PID/ACK loops for line item information with descriptions."""
         
         # Parse all segments first since we need to look ahead
-        parsed_segments = [self._parse_segment(s) for s in segments]
+        # Parse all segments first since we need to look ahead
+        # segments argument is already parsed from _parse_segments
+        parsed_segments = segments
         
         # Find all PO1 segment indices
         po1_indices = []
