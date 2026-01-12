@@ -239,9 +239,12 @@ async def convert_edi_file(
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"FULL ERROR TRACE: {error_trace}")
         raise HTTPException(
             status_code=500,
-            detail=f"Conversion failed: {str(e)}"
+            detail=f"Conversion failed: {str(e)} | Location: {error_trace.split('File')[-1].strip()}"
         )
 
 
