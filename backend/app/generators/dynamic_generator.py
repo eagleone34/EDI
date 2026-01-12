@@ -160,7 +160,7 @@ class DynamicGenerator:
                             for col in section.columns:
                                 if not col.visible:
                                     continue
-                                val = item.get(col.key, "—")
+                                val = item.get(col.key, "—") if isinstance(item, dict) else "—"
                                 if col.type == "currency":
                                     try:
                                         val = f"${float(val):,.2f}"
