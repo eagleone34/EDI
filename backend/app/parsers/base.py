@@ -6,7 +6,7 @@ Supports parsing multiple transaction sets (ST/SE) from a single interchange.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass
 
 
