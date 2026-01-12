@@ -72,6 +72,12 @@ interface RecentConversion {
     created_at: string;
 }
 
+interface UserConversions {
+    user_id: string;
+    user_name: string;
+    count: number;
+}
+
 // ============================================================================
 // Main Component
 // ============================================================================
@@ -83,6 +89,7 @@ export default function AdminHubPage() {
     const [activeTab, setActiveTab] = useState<"overview" | "traffic" | "system">("overview");
     const [stats, setStats] = useState<OverviewStats | null>(null);
     const [conversionsByType, setConversionsByType] = useState<ConversionsByType[]>([]);
+    const [conversionsByUser, setConversionsByUser] = useState<UserConversions[]>([]);
     const [activityFeed, setActivityFeed] = useState<ActivityItem[]>([]);
     const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
     const [dailyConversions, setDailyConversions] = useState<DailyConversion[]>([]);
@@ -127,6 +134,10 @@ export default function AdminHubPage() {
                 // Fetch conversions by type
                 const typesRes = await fetch(`${API_BASE_URL}/api/v1/admin/stats/conversions-by-type?days=30`);
                 if (typesRes.ok) setConversionsByType(await typesRes.json());
+
+                // Fetch conversions by user
+                const userRes = await fetch(`${API_BASE_URL}/api/v1/admin/stats/conversions-by-user?limit=10`);
+                if (userRes.ok) setConversionsByUser(await userRes.json());
 
                 // Fetch activity feed
                 const activityRes = await fetch(`${API_BASE_URL}/api/v1/admin/stats/activity?limit=20`);
@@ -245,7 +256,7 @@ export default function AdminHubPage() {
                 </div>
             ) : (
                 <>
-                    {activeTab === "overview" && <OverviewTab stats={stats} conversionsByType={conversionsByType} />}
+                    {activeTab === "overview" && <OverviewTab stats={stats} conversionsByType={conversionsByType} conversionsByUser={conversionsByUser} />}
                     {activeTab === "traffic" && <TrafficTab recentConversions={recentConversions} dailyConversions={dailyConversions} conversionsByType={conversionsByType} searchQuery={searchQuery} setSearchQuery={setSearchQuery} sortConfig={sortConfig} setSortConfig={setSortConfig} />}
                     {activeTab === "system" && <SystemTab health={systemHealth} />}
                 </>
@@ -258,7 +269,7 @@ export default function AdminHubPage() {
 // Overview Tab
 // ============================================================================
 
-function OverviewTab({ stats, conversionsByType }: { stats: OverviewStats | null; conversionsByType: ConversionsByType[] }) {
+function OverviewTab({ stats, conversionsByType, conversionsByUser }: { stats: OverviewStats | null; conversionsByType: ConversionsByType[]; conversionsByUser: UserConversions[] }) {
     if (!stats) return <div className="text-slate-500 text-center py-8">No data available</div>;
 
     const statCards = [
@@ -274,6 +285,8 @@ function OverviewTab({ stats, conversionsByType }: { stats: OverviewStats | null
         purple: { bg: "bg-purple-50", icon: "text-purple-600", text: "text-purple-600" },
         indigo: { bg: "bg-indigo-50", icon: "text-indigo-600", text: "text-indigo-600" },
     };
+
+    const maxUserCount = Math.max(...conversionsByUser.map(u => u.count), 1);
 
     return (
         <div className="space-y-6">
@@ -296,32 +309,64 @@ function OverviewTab({ stats, conversionsByType }: { stats: OverviewStats | null
                 })}
             </div>
 
-            {/* Conversions by Type */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-purple-600" />
-                    Conversions by Type (Last 30 Days)
-                </h3>
-                {conversionsByType.length > 0 ? (
-                    <div className="space-y-3">
-                        {conversionsByType.map((item, i) => (
-                            <div key={i} className="flex items-center gap-4">
-                                <div className="w-16 text-sm font-mono font-semibold text-slate-700">{item.transaction_type}</div>
-                                <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-end pr-2"
-                                        style={{ width: `${Math.max(item.percentage, 5)}%` }}
-                                    >
-                                        <span className="text-xs font-medium text-white">{item.count}</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Conversions by Type */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5 text-purple-600" />
+                        Conversions by Type (Last 30 Days)
+                    </h3>
+                    {conversionsByType.length > 0 ? (
+                        <div className="space-y-3">
+                            {conversionsByType.map((item, i) => (
+                                <div key={i} className="flex items-center gap-4">
+                                    <div className="w-16 text-sm font-mono font-semibold text-slate-700">{item.transaction_type}</div>
+                                    <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-end pr-2"
+                                            style={{ width: `${Math.max(item.percentage, 5)}%` }}
+                                        >
+                                            <span className="text-xs font-medium text-white">{item.count}</span>
+                                        </div>
+                                    </div>
+                                    <div className="w-16 text-right text-sm text-slate-500">{item.percentage}%</div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-slate-500 text-center py-4">No conversion data yet</p>
+                    )}
+                </div>
+
+                {/* Conversions by User */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                        <Users className="w-5 h-5 text-blue-600" />
+                        Top Users by Conversions
+                    </h3>
+                    {conversionsByUser.length > 0 ? (
+                        <div className="space-y-3">
+                            {conversionsByUser.map((user, i) => (
+                                <div key={i} className="flex items-center gap-4">
+                                    <div className="w-32 truncate">
+                                        <p className="text-sm font-medium text-slate-700 truncate">{user.user_name}</p>
+                                        <p className="text-xs text-slate-400 font-mono">{user.user_id.slice(0, 8)}...</p>
+                                    </div>
+                                    <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-end pr-2"
+                                            style={{ width: `${(user.count / maxUserCount) * 100}%` }}
+                                        >
+                                            <span className="text-xs font-medium text-white">{user.count}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="w-16 text-right text-sm text-slate-500">{item.percentage}%</div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-slate-500 text-center py-4">No conversion data yet</p>
-                )}
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-slate-500 text-center py-4">No user data yet</p>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -312,7 +312,8 @@ async def get_activity_feed(
         
     except Exception as e:
         print(f"Error fetching activity feed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return empty list if activity_log table doesn't exist
+        return []
     finally:
         if conn:
             conn.close()
@@ -512,6 +513,72 @@ async def get_recent_conversions(
     except Exception as e:
         print(f"Error fetching recent conversions: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if supabase_conn:
+            supabase_conn.close()
+        if conn:
+            conn.close()
+
+
+@router.get("/stats/conversions-by-user")
+async def get_conversions_by_user(
+    limit: int = Query(20, ge=1, le=100, description="Number of users")
+):
+    """Get conversion counts grouped by user."""
+    supabase_conn = None
+    conn = None
+    try:
+        from app.core.config import settings
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        
+        supabase_db_url = settings.SUPABASE_DB_URL
+        if not supabase_db_url:
+            return []
+        
+        # Get conversion counts per user from Supabase
+        supabase_conn = psycopg2.connect(supabase_db_url)
+        supabase_cur = supabase_conn.cursor(cursor_factory=RealDictCursor)
+        
+        supabase_cur.execute("""
+            SELECT 
+                user_id,
+                COUNT(*) as count
+            FROM documents
+            GROUP BY user_id
+            ORDER BY count DESC
+            LIMIT %s
+        """, (limit,))
+        
+        results = supabase_cur.fetchall()
+        
+        # Get user names from Railway DB
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        
+        user_ids = [r["user_id"] for r in results if r["user_id"]]
+        user_names = {}
+        
+        if user_ids:
+            placeholders = ",".join(["%s"] * len(user_ids))
+            cur.execute(f"""
+                SELECT id, name, email FROM users WHERE id IN ({placeholders})
+            """, user_ids)
+            for u in cur.fetchall():
+                user_names[u["id"]] = u["name"] or u["email"].split("@")[0]
+        
+        return [
+            {
+                "user_id": r["user_id"],
+                "user_name": user_names.get(r["user_id"], "Unknown"),
+                "count": r["count"]
+            }
+            for r in results
+        ]
+        
+    except Exception as e:
+        print(f"Error fetching conversions by user: {e}")
+        return []
     finally:
         if supabase_conn:
             supabase_conn.close()
