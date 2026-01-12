@@ -26,12 +26,33 @@ export default function EmailHistoryModal({ routeId, isOpen, onClose }: EmailHis
     const [logs, setLogs] = useState<EmailLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [resendingId, setResendingId] = useState<string | null>(null);
+    const [clearing, setClearing] = useState(false);
 
     useEffect(() => {
         if (isOpen && routeId) {
             fetchLogs();
         }
     }, [isOpen, routeId]);
+
+    const handleClearHistory = async () => {
+        if (!routeId || !confirm("Are you sure you want to clear the email history for this rule? This cannot be undone.")) return;
+
+        setClearing(true);
+        try {
+            const { error } = await supabase
+                .from("email_logs")
+                .delete()
+                .eq("route_id", routeId);
+
+            if (error) throw error;
+            setLogs([]);
+        } catch (error) {
+            console.error("Error clearing history:", error);
+            alert("Failed to clear history.");
+        } finally {
+            setClearing(false);
+        }
+    };
 
     const fetchLogs = async () => {
         setLoading(true);
@@ -101,7 +122,18 @@ export default function EmailHistoryModal({ routeId, isOpen, onClose }: EmailHis
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 flex flex-col max-h-[80vh]">
                 <div className="flex items-center justify-between p-6 border-b border-slate-100">
-                    <h3 className="text-lg font-semibold text-slate-800">Sent Email History</h3>
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-semibold text-slate-800">Sent Email History</h3>
+                        {logs.length > 0 && (
+                            <button
+                                onClick={handleClearHistory}
+                                disabled={clearing}
+                                className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                            >
+                                {clearing ? "Clearing..." : "Clear History"}
+                            </button>
+                        )}
+                    </div>
                     <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded">
                         <X className="w-5 h-5 text-slate-500" />
                     </button>

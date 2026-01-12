@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { Plus, Trash2, Mail, AlertCircle, Check, Loader2, Edit2, Pencil, History, Send } from "lucide-react";
@@ -12,6 +12,7 @@ interface EmailRoute {
     transaction_type: string;
     email_addresses: string[];
     is_active: boolean;
+    formats: string[];
 }
 
 // Type names mapping
@@ -38,10 +39,10 @@ export default function EmailRoutesSettings() {
     const [success, setSuccess] = useState<string | null>(null);
 
     // New route form
-    // New route form
     const [editingId, setEditingId] = useState<string | null>(null);
     const [newType, setNewType] = useState("");
     const [newEmails, setNewEmails] = useState<string[]>([]);
+    const [selectedFormats, setSelectedFormats] = useState<string[]>(["pdf"]);
     const [showForm, setShowForm] = useState(false);
 
     // History Modal
@@ -97,6 +98,25 @@ export default function EmailRoutesSettings() {
         }
     };
 
+    const handleFormatToggle = (format: string) => {
+        if (selectedFormats.includes(format)) {
+            if (selectedFormats.length > 1) {
+                setSelectedFormats(selectedFormats.filter(f => f !== format));
+            }
+        } else {
+            setSelectedFormats([...selectedFormats, format]);
+        }
+    };
+
+    const handleCancelForm = () => {
+        setEditingId(null);
+        setNewType(userDocumentTypes[0] || "");
+        setNewEmails([]);
+        setSelectedFormats(["pdf"]);
+        setShowForm(false);
+        setError(null);
+    };
+
     const handleSaveRoute = async () => {
         if (!user?.id || newEmails.length === 0) {
             setError("Please enter at least one valid email address");
@@ -123,6 +143,7 @@ export default function EmailRoutesSettings() {
                     .update({
                         transaction_type: newType,
                         email_addresses: newEmails,
+                        formats: selectedFormats,
                     })
                     .eq("id", editingId)
                     .select()
@@ -144,6 +165,7 @@ export default function EmailRoutesSettings() {
                         user_id: user.id,
                         transaction_type: newType,
                         email_addresses: newEmails,
+                        formats: selectedFormats,
                         is_active: true,
                     })
                     .select()
@@ -171,6 +193,7 @@ export default function EmailRoutesSettings() {
         setEditingId(route.id);
         setNewType(route.transaction_type);
         setNewEmails(route.email_addresses);
+        setSelectedFormats(route.formats || ["pdf"]);
         setShowForm(true);
         setError(null);
     };
@@ -178,14 +201,6 @@ export default function EmailRoutesSettings() {
     const handleViewHistory = (routeId: string) => {
         setHistoryRouteId(routeId);
         setShowHistory(true);
-    };
-
-    const handleCancelForm = () => {
-        setEditingId(null);
-        setNewType(userDocumentTypes[0] || "");
-        setNewEmails([]);
-        setShowForm(false);
-        setError(null);
     };
 
     const handleTestRoute = async (route: EmailRoute) => {
@@ -202,7 +217,7 @@ export default function EmailRoutesSettings() {
                     transaction_type: route.transaction_type,
                     transaction_name: TYPE_NAMES[route.transaction_type] || "Test Transaction",
                     trading_partner: "TEST PARTNER",
-                    // No PDF for simple test
+                    formats: route.formats || ["pdf"],
                 }),
             });
 
@@ -350,6 +365,41 @@ export default function EmailRoutesSettings() {
                                 All converted {getTypeName(newType)} documents will be emailed to these addresses.
                             </p>
                         </div>
+
+                        {/* Format Selection UI */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Include Formats</label>
+                            <div className="flex gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedFormats.includes('pdf')}
+                                        onChange={() => handleFormatToggle('pdf')}
+                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm text-slate-600">PDF</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedFormats.includes('excel')}
+                                        onChange={() => handleFormatToggle('excel')}
+                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm text-slate-600">Excel</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedFormats.includes('html')}
+                                        onChange={() => handleFormatToggle('html')}
+                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm text-slate-600">HTML</span>
+                                </label>
+                            </div>
+                        </div>
+
                         <div className="flex gap-2">
                             <button
                                 onClick={handleSaveRoute}
@@ -396,6 +446,14 @@ export default function EmailRoutesSettings() {
                                 </div>
                                 <div className="text-sm text-slate-500 mt-1">
                                     → {route.email_addresses.join(", ")}
+                                </div>
+                                {/* Format Badges */}
+                                <div className="flex gap-2 mt-1.5">
+                                    {(route.formats || ["pdf"]).map(f => (
+                                        <span key={f} className="text-[10px] items-center gap-1 font-semibold uppercase text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                            {f}
+                                        </span>
+                                    ))}
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
