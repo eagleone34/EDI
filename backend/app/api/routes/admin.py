@@ -130,20 +130,6 @@ async def get_overview_stats():
         cur.execute("SELECT COUNT(*) as count FROM users")
         total_users = cur.fetchone()["count"]
         
-        # Active users (users with last_active_at in last 7 days)
-        cur.execute("""
-            SELECT COUNT(*) as count FROM users
-            WHERE last_active_at > NOW() - INTERVAL '7 days'
-        """)
-        active_7d = cur.fetchone()["count"]
-        
-        # Active users (last 30 days)
-        cur.execute("""
-            SELECT COUNT(*) as count FROM users
-            WHERE last_active_at > NOW() - INTERVAL '30 days'
-        """)
-        active_30d = cur.fetchone()["count"]
-        
         # New users this week
         cur.execute("""
             SELECT COUNT(*) as count FROM users 
@@ -151,11 +137,13 @@ async def get_overview_stats():
         """)
         new_users_7d = cur.fetchone()["count"]
         
-        # Get conversion stats from Supabase documents table
+        # Get conversion stats and active users from Supabase documents table
         total_conversions = 0
         conversions_today = 0
         conversions_week = 0
         conversions_month = 0
+        active_7d = 0
+        active_30d = 0
         
         supabase_db_url = settings.SUPABASE_DB_URL
         if supabase_db_url:
@@ -187,6 +175,20 @@ async def get_overview_stats():
                     WHERE created_at > NOW() - INTERVAL '30 days'
                 """)
                 conversions_month = supabase_cur.fetchone()["count"]
+                
+                # Active users (distinct users with conversions in last 7 days)
+                supabase_cur.execute("""
+                    SELECT COUNT(DISTINCT user_id) as count FROM documents 
+                    WHERE created_at > NOW() - INTERVAL '7 days'
+                """)
+                active_7d = supabase_cur.fetchone()["count"]
+                
+                # Active users (last 30 days)
+                supabase_cur.execute("""
+                    SELECT COUNT(DISTINCT user_id) as count FROM documents 
+                    WHERE created_at > NOW() - INTERVAL '30 days'
+                """)
+                active_30d = supabase_cur.fetchone()["count"]
                 
             except Exception as e:
                 print(f"Error querying Supabase: {e}")
